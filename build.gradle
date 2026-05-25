@@ -1,0 +1,83 @@
+/*
+ * 调用脚本
+ */
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '2.3.2.RELEASE'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+}
+/**
+ * 项目基础信息
+ */
+group = 'com.gateway'
+version = '1.0.0'
+description = 'gateway'
+/**
+ * 编码规则
+ */
+tasks.withType(JavaCompile) {
+    options.encoding = "UTF-8"
+}
+/**
+ * 镜像仓库地址
+ */
+repositories {
+    mavenLocal()
+    maven { url "https://maven.aliyun.com/nexus/content/groups/public/" }
+    maven { url 'https://maven.aliyun.com/repository/gradle-plugin' }
+    maven { url 'https://maven.aliyun.com/repository/google' }
+    maven { url 'https://maven.aliyun.com/repository/public' }
+}
+/**
+ * 私人仓库配置
+ */
+allprojects {
+    repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/public'
+        }
+        maven {
+            credentials {
+                username '6019f3f695a53539a7b5c924'
+                password 'GTrE)ismR7p('
+            }
+            url 'https://packages.aliyun.com/maven/repository/2073071-release-ORqNnV/'
+        }
+        maven {
+            credentials {
+                username '6019f3f695a53539a7b5c924'
+                password 'GTrE)ismR7p('
+            }
+            url 'https://packages.aliyun.com/maven/repository/2073071-snapshot-gL7Tr2/'
+        }
+    }
+}
+/**
+ * 打包为 bootJar，可独立运行
+ */
+bootJar {
+    enabled = true
+}
+/**
+ * 引入的jar
+ */
+dependencies {
+    annotationProcessor 'org.projectlombok:lombok:1.18.2'
+    implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery:2.2.6.RELEASE'
+    implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config:2.2.6.RELEASE'
+    implementation 'org.springframework.cloud:spring-cloud-starter-gateway:2.2.6.RELEASE'
+    implementation 'org.springframework.cloud:spring-cloud-starter-openfeign:2.2.6.RELEASE'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator:2.3.2.RELEASE'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive:2.3.2.RELEASE'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis:2.3.2.RELEASE'
+    implementation 'redis.clients:jedis:3.1.0'
+    implementation 'org.projectlombok:lombok:1.18.12'
+    implementation 'org.apache.commons:commons-lang3:3.4'
+    implementation 'com.squareup.okhttp3:okhttp:3.10.0'
+    implementation 'cn.hutool:hutool-all:5.5.2'
+    implementation 'com.google.protobuf:protobuf-java:2.5.0'
+    implementation 'com.aliyun.openservices:aliyun-log-logback-appender:0.1.18'
+    implementation 'io.springfox:springfox-boot-starter:3.0.0'
+    implementation 'com.github.xiaoymin:knife4j-spring-boot-starter:3.0.3'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test:2.3.2.RELEASE'
+}

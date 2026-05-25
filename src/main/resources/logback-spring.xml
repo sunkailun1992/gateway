@@ -1,0 +1,380 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!--为了防止进程退出时，内存中的数据丢失，请加上此选项-->
+    <shutdownHook class="ch.qos.logback.core.hook.DelayingShutdownHook"/>
+
+
+    <!-- 测试环境 -->
+    <appender name="log-error-dev" class="com.aliyun.openservices.log.logback.LoghubAppender">
+        <!--必选项-->
+        <!-- 账号及网络配置 -->
+        <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
+        <accessKeyId>LTAI5tHwUMcQ1PDweTc43RyK</accessKeyId>
+        <accessKeySecret>b2bpYZ77RRcAi4UYEj6BmXo4OZ5OB2</accessKeySecret>
+
+        <!-- sls 项目配置 -->
+        <project>gbw-dev</project>
+        <logStore>gateway-error</logStore>
+        <!--必选项 (end)-->
+
+        <!-- 可选项 -->
+        <!--        <topic>topic1</topic>-->
+        <!--        <source>source1</source>-->
+
+        <!-- 可选项 详见 '参数说明'-->
+        <totalSizeInBytes>104857600</totalSizeInBytes>
+        <maxBlockMs>60000</maxBlockMs>
+        <ioThreadCount>8</ioThreadCount>
+        <batchSizeThresholdInBytes>524288</batchSizeThresholdInBytes>
+        <batchCountThreshold>4096</batchCountThreshold>
+        <lingerMs>2000</lingerMs>
+        <retries>10</retries>
+        <baseRetryBackoffMs>100</baseRetryBackoffMs>
+        <maxRetryBackoffMs>100</maxRetryBackoffMs>
+
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter"><!-- 打印WARN,ERROR级别的日志 -->
+            <level>WARN</level>
+        </filter>
+
+        <mdcFields>THREAD_ID,MDC_KEY</mdcFields>
+    </appender>
+    <!-- 测试环境 -->
+    <appender name="log-debug-dev" class="com.aliyun.openservices.log.logback.LoghubAppender">
+        <!--必选项-->
+        <!-- 账号及网络配置 -->
+        <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
+        <accessKeyId>LTAI5tHwUMcQ1PDweTc43RyK</accessKeyId>
+        <accessKeySecret>b2bpYZ77RRcAi4UYEj6BmXo4OZ5OB2</accessKeySecret>
+
+        <!-- sls 项目配置 -->
+        <project>gbw-dev</project>
+        <logStore>gateway-debug</logStore>
+        <!--必选项 (end)-->
+
+        <!-- 可选项 -->
+        <!--        <topic>topic2</topic>-->
+        <!--        <source>source2</source>-->
+
+        <!-- 可选项 详见 '参数说明'-->
+        <totalSizeInBytes>104857600</totalSizeInBytes>
+        <maxBlockMs>0</maxBlockMs>
+        <ioThreadCount>8</ioThreadCount>
+        <batchSizeThresholdInBytes>524288</batchSizeThresholdInBytes>
+        <batchCountThreshold>4096</batchCountThreshold>
+        <lingerMs>2000</lingerMs>
+        <retries>10</retries>
+        <baseRetryBackoffMs>100</baseRetryBackoffMs>
+        <maxRetryBackoffMs>50000</maxRetryBackoffMs>
+
+        <!-- 可选项 通过配置 encoder 的 pattern 自定义 log 的格式 -->
+        <encoder>
+            <pattern>%d %-5level [%thread] %logger{0}: %msg</pattern>
+        </encoder>
+
+        <!-- 可选项 设置时间格式 -->
+        <timeFormat>yyyy-MM-dd'T'HH:mmZ</timeFormat>
+        <!-- 可选项 设置时区 -->
+        <timeZone>Asia/Shanghai</timeZone>
+
+        <filter class="ch.qos.logback.classic.filter.LevelFilter"><!-- 只打印INFO级别的日志 -->
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+
+        <mdcFields>THREAD_ID,MDC_KEY</mdcFields>
+    </appender>
+
+
+    <!-- 测试环境 -->
+    <appender name="log-error-test" class="com.aliyun.openservices.log.logback.LoghubAppender">
+        <!--必选项-->
+        <!-- 账号及网络配置 -->
+        <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
+        <accessKeyId>LTAI5tHwUMcQ1PDweTc43RyK</accessKeyId>
+        <accessKeySecret>b2bpYZ77RRcAi4UYEj6BmXo4OZ5OB2</accessKeySecret>
+
+        <!-- sls 项目配置 -->
+        <project>gbw-test</project>
+        <logStore>gateway-error</logStore>
+        <!--必选项 (end)-->
+
+        <!-- 可选项 -->
+        <!--        <topic>topic1</topic>-->
+        <!--        <source>source1</source>-->
+
+        <!-- 可选项 详见 '参数说明'-->
+        <totalSizeInBytes>104857600</totalSizeInBytes>
+        <maxBlockMs>60000</maxBlockMs>
+        <ioThreadCount>8</ioThreadCount>
+        <batchSizeThresholdInBytes>524288</batchSizeThresholdInBytes>
+        <batchCountThreshold>4096</batchCountThreshold>
+        <lingerMs>2000</lingerMs>
+        <retries>10</retries>
+        <baseRetryBackoffMs>100</baseRetryBackoffMs>
+        <maxRetryBackoffMs>100</maxRetryBackoffMs>
+
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter"><!-- 打印WARN,ERROR级别的日志 -->
+            <level>WARN</level>
+        </filter>
+
+        <mdcFields>THREAD_ID,MDC_KEY</mdcFields>
+    </appender>
+    <!-- 测试环境 -->
+    <appender name="log-debug-test" class="com.aliyun.openservices.log.logback.LoghubAppender">
+        <!--必选项-->
+        <!-- 账号及网络配置 -->
+        <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
+        <accessKeyId>LTAI5tHwUMcQ1PDweTc43RyK</accessKeyId>
+        <accessKeySecret>b2bpYZ77RRcAi4UYEj6BmXo4OZ5OB2</accessKeySecret>
+
+        <!-- sls 项目配置 -->
+        <project>gbw-test</project>
+        <logStore>gateway-debug</logStore>
+        <!--必选项 (end)-->
+
+        <!-- 可选项 -->
+        <!--        <topic>topic2</topic>-->
+        <!--        <source>source2</source>-->
+
+        <!-- 可选项 详见 '参数说明'-->
+        <totalSizeInBytes>104857600</totalSizeInBytes>
+        <maxBlockMs>0</maxBlockMs>
+        <ioThreadCount>8</ioThreadCount>
+        <batchSizeThresholdInBytes>524288</batchSizeThresholdInBytes>
+        <batchCountThreshold>4096</batchCountThreshold>
+        <lingerMs>2000</lingerMs>
+        <retries>10</retries>
+        <baseRetryBackoffMs>100</baseRetryBackoffMs>
+        <maxRetryBackoffMs>50000</maxRetryBackoffMs>
+
+        <!-- 可选项 通过配置 encoder 的 pattern 自定义 log 的格式 -->
+        <encoder>
+            <pattern>%d %-5level [%thread] %logger{0}: %msg</pattern>
+        </encoder>
+
+        <!-- 可选项 设置时间格式 -->
+        <timeFormat>yyyy-MM-dd'T'HH:mmZ</timeFormat>
+        <!-- 可选项 设置时区 -->
+        <timeZone>Asia/Shanghai</timeZone>
+
+        <filter class="ch.qos.logback.classic.filter.LevelFilter"><!-- 只打印INFO级别的日志 -->
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+
+        <mdcFields>THREAD_ID,MDC_KEY</mdcFields>
+    </appender>
+
+
+    <!-- 预发环境 -->
+    <appender name="log-error-release" class="com.aliyun.openservices.log.logback.LoghubAppender">
+        <!--必选项-->
+        <!-- 账号及网络配置 -->
+        <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
+        <accessKeyId>LTAI5tHwUMcQ1PDweTc43RyK</accessKeyId>
+        <accessKeySecret>b2bpYZ77RRcAi4UYEj6BmXo4OZ5OB2</accessKeySecret>
+
+        <!-- sls 项目配置 -->
+        <project>gbw-release</project>
+        <logStore>gateway-error</logStore>
+        <!--必选项 (end)-->
+
+        <!-- 可选项 -->
+        <!--        <topic>topic1</topic>-->
+        <!--        <source>source1</source>-->
+
+        <!-- 可选项 详见 '参数说明'-->
+        <totalSizeInBytes>104857600</totalSizeInBytes>
+        <maxBlockMs>60000</maxBlockMs>
+        <ioThreadCount>8</ioThreadCount>
+        <batchSizeThresholdInBytes>524288</batchSizeThresholdInBytes>
+        <batchCountThreshold>4096</batchCountThreshold>
+        <lingerMs>2000</lingerMs>
+        <retries>10</retries>
+        <baseRetryBackoffMs>100</baseRetryBackoffMs>
+        <maxRetryBackoffMs>100</maxRetryBackoffMs>
+
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter"><!-- 打印WARN,ERROR级别的日志 -->
+            <level>WARN</level>
+        </filter>
+
+        <mdcFields>THREAD_ID,MDC_KEY</mdcFields>
+    </appender>
+    <!-- 预发环境 -->
+    <appender name="log-debug-release" class="com.aliyun.openservices.log.logback.LoghubAppender">
+        <!--必选项-->
+        <!-- 账号及网络配置 -->
+        <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
+        <accessKeyId>LTAI5tHwUMcQ1PDweTc43RyK</accessKeyId>
+        <accessKeySecret>b2bpYZ77RRcAi4UYEj6BmXo4OZ5OB2</accessKeySecret>
+
+        <!-- sls 项目配置 -->
+        <project>gbw-release</project>
+        <logStore>gateway-debug</logStore>
+        <!--必选项 (end)-->
+
+        <!-- 可选项 -->
+        <!--        <topic>topic2</topic>-->
+        <!--        <source>source2</source>-->
+
+        <!-- 可选项 详见 '参数说明'-->
+        <totalSizeInBytes>104857600</totalSizeInBytes>
+        <maxBlockMs>0</maxBlockMs>
+        <ioThreadCount>8</ioThreadCount>
+        <batchSizeThresholdInBytes>524288</batchSizeThresholdInBytes>
+        <batchCountThreshold>4096</batchCountThreshold>
+        <lingerMs>2000</lingerMs>
+        <retries>10</retries>
+        <baseRetryBackoffMs>100</baseRetryBackoffMs>
+        <maxRetryBackoffMs>50000</maxRetryBackoffMs>
+
+        <!-- 可选项 通过配置 encoder 的 pattern 自定义 log 的格式 -->
+        <encoder>
+            <pattern>%d %-5level [%thread] %logger{0}: %msg</pattern>
+        </encoder>
+
+        <!-- 可选项 设置时间格式 -->
+        <timeFormat>yyyy-MM-dd'T'HH:mmZ</timeFormat>
+        <!-- 可选项 设置时区 -->
+        <timeZone>Asia/Shanghai</timeZone>
+
+        <filter class="ch.qos.logback.classic.filter.LevelFilter"><!-- 只打印INFO级别的日志 -->
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+
+        <mdcFields>THREAD_ID,MDC_KEY</mdcFields>
+    </appender>
+
+
+    <!-- 正式环境 -->
+    <appender name="log-error-prod" class="com.aliyun.openservices.log.logback.LoghubAppender">
+        <!--必选项-->
+        <!-- 账号及网络配置 -->
+        <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
+        <accessKeyId>LTAI5tHwUMcQ1PDweTc43RyK</accessKeyId>
+        <accessKeySecret>b2bpYZ77RRcAi4UYEj6BmXo4OZ5OB2</accessKeySecret>
+
+        <!-- sls 项目配置 -->
+        <project>gbw-prod</project>
+        <logStore>gateway-error</logStore>
+        <!--必选项 (end)-->
+
+        <!-- 可选项 -->
+        <!--        <topic>topic1</topic>-->
+        <!--        <source>source1</source>-->
+
+        <!-- 可选项 详见 '参数说明'-->
+        <totalSizeInBytes>104857600</totalSizeInBytes>
+        <maxBlockMs>60000</maxBlockMs>
+        <ioThreadCount>8</ioThreadCount>
+        <batchSizeThresholdInBytes>524288</batchSizeThresholdInBytes>
+        <batchCountThreshold>4096</batchCountThreshold>
+        <lingerMs>2000</lingerMs>
+        <retries>10</retries>
+        <baseRetryBackoffMs>100</baseRetryBackoffMs>
+        <maxRetryBackoffMs>100</maxRetryBackoffMs>
+
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter"><!-- 打印WARN,ERROR级别的日志 -->
+            <level>WARN</level>
+        </filter>
+
+        <mdcFields>THREAD_ID,MDC_KEY</mdcFields>
+    </appender>
+    <!-- 正式环境 -->
+    <appender name="log-debug-prod" class="com.aliyun.openservices.log.logback.LoghubAppender">
+        <!--必选项-->
+        <!-- 账号及网络配置 -->
+        <endpoint>cn-hangzhou.log.aliyuncs.com</endpoint>
+        <accessKeyId>LTAI5tHwUMcQ1PDweTc43RyK</accessKeyId>
+        <accessKeySecret>b2bpYZ77RRcAi4UYEj6BmXo4OZ5OB2</accessKeySecret>
+
+        <!-- sls 项目配置 -->
+        <project>gbw-prod</project>
+        <logStore>gateway-debug</logStore>
+        <!--必选项 (end)-->
+
+        <!-- 可选项 -->
+        <!--        <topic>topic2</topic>-->
+        <!--        <source>source2</source>-->
+
+        <!-- 可选项 详见 '参数说明'-->
+        <totalSizeInBytes>104857600</totalSizeInBytes>
+        <maxBlockMs>0</maxBlockMs>
+        <ioThreadCount>8</ioThreadCount>
+        <batchSizeThresholdInBytes>524288</batchSizeThresholdInBytes>
+        <batchCountThreshold>4096</batchCountThreshold>
+        <lingerMs>2000</lingerMs>
+        <retries>10</retries>
+        <baseRetryBackoffMs>100</baseRetryBackoffMs>
+        <maxRetryBackoffMs>50000</maxRetryBackoffMs>
+
+        <!-- 可选项 通过配置 encoder 的 pattern 自定义 log 的格式 -->
+        <encoder>
+            <pattern>%d %-5level [%thread] %logger{0}: %msg</pattern>
+        </encoder>
+
+        <!-- 可选项 设置时间格式 -->
+        <timeFormat>yyyy-MM-dd'T'HH:mmZ</timeFormat>
+        <!-- 可选项 设置时区 -->
+        <timeZone>Asia/Shanghai</timeZone>
+
+        <filter class="ch.qos.logback.classic.filter.LevelFilter"><!-- 只打印INFO级别的日志 -->
+            <level>DEBUG</level>
+            <onMatch>ACCEPT</onMatch>
+            <onMismatch>DENY</onMismatch>
+        </filter>
+
+        <mdcFields>THREAD_ID,MDC_KEY</mdcFields>
+    </appender>
+
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- 编码器的类型是ch.qos.logback.classic.encoder.PatternLayoutEncoder默认情况下 -->
+        <encoder>
+            <pattern>[ %-5level] [%date{yyyy-MM-dd HH:mm:ss}] %logger{96} [%line] - %msg%n</pattern>
+            <charset>UTF-8</charset> <!-- 此处设置字符集 -->
+        </encoder>
+    </appender>
+
+
+    <!-- 可用来获取StatusManager中的状态 -->
+    <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener"/>
+
+
+    <!-- 解决debug模式下循环发送的问题 -->
+    <logger name="org.apache.http.impl.conn.Wire" level="WARN"/>
+
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <!-- 测试环境 -->
+        <springProfile name="dev">
+            <appender-ref ref="log-error-dev"/>
+            <appender-ref ref="log-debug-dev"/>
+        </springProfile>
+        <!-- 测试环境 -->
+        <springProfile name="test">
+            <appender-ref ref="log-error-test"/>
+            <appender-ref ref="log-debug-test"/>
+        </springProfile>
+        <!-- 预发环境 -->
+        <springProfile name="release">
+            <appender-ref ref="log-error-release"/>
+            <appender-ref ref="log-debug-release"/>
+        </springProfile>
+        <!-- 正式环境 -->
+        <springProfile name="prod">
+            <appender-ref ref="log-error-prod"/>
+            <appender-ref ref="log-debug-prod"/>
+        </springProfile>
+    </root>
+
+    <logger name="com.gb" level="DEBUG"/>
+
+    <logger name="heartbeat" level="ERROR"/>
+    <logger name="timer" level="ERROR"/>
+</configuration>
