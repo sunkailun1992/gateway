@@ -1,15 +1,26 @@
 custom:
-  nacos-ip: http://127.0.0.1:8848
+  nacos-ip: 127.0.0.1:8848
   namespace: cfbf4c42-5ebb-4566-a095-30a568556a85
+  nacos-group: DEFAULT_GROUP
 spring:
+  application:
+    name: gateway
   cloud:
     nacos:
+      discovery:
+        server-addr: ${custom.nacos-ip}
+        namespace: ${custom.namespace}
+        group: ${custom.nacos-group}
       config:
         server-addr: ${custom.nacos-ip}  # 配置中心地址
         file-extension: yaml  # dataid 的名称就是application的name加file-extension
-        group: DEFAULT_GROUP  # 测试组
+        group: ${custom.nacos-group}  # 测试组
         namespace: ${custom.namespace} # 环境的id
         extension-configs:
+          # 日志配置
+          - data-id: logging.yml
+            group: DEFAULT_GROUP
+            refresh: true
           # 通用配置
           - data-id: reuse-configuration.yaml
             group: DEFAULT_GROUP
@@ -22,15 +33,19 @@ spring:
           - data-id: gateway-spring.yaml
             group: test
             refresh: true
+          # redis缓存配置
+          - data-id: redis.yaml
+            group: DEFAULT_GROUP
+            refresh: true
           # 链路监控
           - data-id: zipkin.yaml
             group: DEFAULT_GROUP
             refresh: true
-          # rpc和熔断配置
-          - data-id: feign.yaml
-            group: DEFAULT_GROUP
-            refresh: true
           # 监控中心
           - data-id: admin.yaml
+            group: DEFAULT_GROUP
+            refresh: true
+          # api样式
+          - data-id: knife4j.yaml
             group: DEFAULT_GROUP
             refresh: true

@@ -1,4 +1,9 @@
 server:
   port: 8888
-  tomcat:
-    max-http-form-post-size: -1
+spring:
+  main:
+    allow-bean-definition-overriding: true
+  cloud:
+    gateway:
+      httpclient:
+        max-initial-line-length: 16KB

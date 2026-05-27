@@ -1,4 +1,4 @@
-FROM registry.cn-hangzhou.aliyuncs.com/gongbaowang/jre-env:8u241
-COPY gateway-1.0.0.jar /app/
+FROM eclipse-temurin:17-jre
+COPY build/libs/gateway-1.0.0.jar /app/gateway-1.0.0.jar
 WORKDIR /app/
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["java", "-jar", "/app/gateway-1.0.0.jar"]
