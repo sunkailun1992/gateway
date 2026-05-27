@@ -1,4 +1,4 @@
-package com.gb.utils.date;
+package com.kellen.utils.date;
 
 import com.google.common.collect.Lists;
 

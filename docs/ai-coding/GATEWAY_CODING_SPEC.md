@@ -20,7 +20,7 @@
 - 使用 `RequestRateLimiter` 做网关级限流。
 - 对 `/actuator` 入口做额外保护。
 - 聚合 OpenAPI 资源列表。
-- 输出本地控制台日志。
+- 从 Nacos 远程 `logging.yml` 读取日志配置。
 
 ## 认证边界
 
@@ -52,7 +52,8 @@
 
 ## 日志规范
 
-- 本地和运行环境统一使用控制台日志。
+- 仓库不保留 `src/main/resources/logback-spring.xml`。
+- 日志配置统一维护在 Nacos 远程 `logging.yml`。
 - 不接入 SLS、Loghub 或阿里云日志 appender。
 - 不在日志配置中写入 accessKey、secretKey 等凭证。
 
@@ -65,6 +66,6 @@
 ## 测试规范
 
 - 新增或调整代码后执行 `./gradlew clean test bootJar --no-daemon`。
-- 测试包名必须能扫描到 `com.gb.GatewayApplication`。
+- 测试包名必须能扫描到 `com.kellen.GatewayApplication`。
 - 如测试读取本机 Nacos 配置，需确认 Nacos 已启动并说明依赖。
 - 普通单元测试不要默认依赖真实 Redis、Nacos、业务服务；需要外部配置时优先 mock 或使用测试配置。

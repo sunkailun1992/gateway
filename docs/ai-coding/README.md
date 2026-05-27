@@ -19,7 +19,7 @@
 - 当前远程配置只有 `user` 项目路由；新增微服务时让 AI 在 Nacos 远程配置里追加一条网关路由。
 - Spring Cloud Gateway 4 已不使用 Ribbon；不要恢复旧 `RewriteRoundRobinRule`。
 - Springfox/旧 Knife4j 聚合已移除；OpenAPI 聚合走本项目的 `/swagger-resources` 轻量端点。
-- 日志只输出到本地控制台，不接入 SLS。
+- 日志配置来自 Nacos 远程 `logging.yml`，仓库不保留本地 `logback-spring.xml`。
 
 ## 目录结构
 

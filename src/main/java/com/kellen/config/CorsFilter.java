@@ -1,4 +1,4 @@
-package com.gb.config;
+package com.kellen.config;
 
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;

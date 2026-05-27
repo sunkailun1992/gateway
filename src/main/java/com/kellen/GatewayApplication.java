@@ -1,4 +1,4 @@
-package com.gb;
+package com.kellen;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

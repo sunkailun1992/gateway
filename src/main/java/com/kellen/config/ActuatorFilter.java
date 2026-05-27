@@ -1,4 +1,4 @@
-package com.gb.config;
+package com.kellen.config;
 
 import cn.hutool.core.collection.CollectionUtil;
 import org.springframework.core.Ordered;

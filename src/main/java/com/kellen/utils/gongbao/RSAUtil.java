@@ -1,4 +1,4 @@
-package com.gb.utils.gongbao;
+package com.kellen.utils.gongbao;
 
 import cn.hutool.core.codec.Base64;
 import cn.hutool.core.codec.Base64Decoder;

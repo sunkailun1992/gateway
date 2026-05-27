@@ -1,4 +1,4 @@
-package com.gb.config;
+package com.kellen.config;
 
 import org.springframework.cloud.gateway.config.GatewayProperties;
 import org.springframework.cloud.gateway.support.NameUtils;
