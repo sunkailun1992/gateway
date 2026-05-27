@@ -18,7 +18,6 @@
 - 通过 `lb://service-name` 转发到后端服务。
 - 处理跨域预检。
 - 使用 `RequestRateLimiter` 做网关级限流。
-- 对 `/actuator` 入口做额外保护。
 - 聚合 OpenAPI 资源列表。
 - 从 Nacos 远程 `logging.yml` 读取日志配置。
 
@@ -38,6 +37,15 @@
 - 不查询 Redis 中的用户对象或 API 权限列表。
 - 不调用 `user/authUserSystem` 做二次鉴权。
 - 不按 `ApiResponse.code` 判断请求能否放行。
+- 不新增 token、header、用户、权限或 Actuator 自定义鉴权过滤器。
+
+## 注释规范
+
+- AI 新增或修改 Java 代码时必须按“每行注释”标准处理。
+- 包声明、import、空行和单独的大括号不需要写注释。
+- 类、字段、常量、方法、Bean、判断条件、返回值、lambda 和流式处理步骤必须逐行写中文注释。
+- 注释要说明这一行在网关里的职责或约束，避免无意义复述代码语法。
+- 修改已有类时，至少补齐被修改逻辑周围的关键行注释。
 
 ## 路由规范
 

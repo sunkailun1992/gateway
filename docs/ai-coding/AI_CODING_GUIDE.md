@@ -11,9 +11,18 @@
 5. 涉及公共能力时，优先复用同级 `utils` 项目，不在网关新增公共工具包。
 6. 修改完成后执行编译、测试和打包验证。
 
+## 注释要求
+
+- AI 新增或修改 Java 代码时，按“每行注释”执行。
+- 包声明、import、空行和单独的大括号不用强行注释。
+- 类、字段、常量、配置 Bean、方法、条件判断、返回值、lambda、流式处理每一步都要写中文注释。
+- 注释必须说明业务目的或网关职责，不能写“设置变量”“返回结果”这类无信息量注释。
+- 调整已有代码时，补齐被修改代码附近的关键行注释，避免新旧风格混杂导致后续 AI 误读。
+
 ## 禁止事项
 
 - 不要恢复旧 `TokenFilter`、`UserRpc`、`RedisUtils` token 鉴权。
+- 不要新增任何 token、header、用户、权限或 Actuator 自定义鉴权过滤器。
 - 不要在网关解析、组装或判断业务 `ApiResponse`。
 - 不要在网关维护用户权限表、接口权限列表或 Redis 登录态。
 - 不要恢复 Ribbon 负载均衡规则。
@@ -25,7 +34,7 @@
 
 1. Nacos 远程 `gateway-spring.yaml`
 2. `src/main/resources/bootstrap.yml` 或 `application.yml`
-3. `src/main/java/com/gb/config/*`
+3. `src/main/java/com/kellen/config/*`
 4. `src/test/java/*`
 5. `Dockerfile` 或构建脚本
 

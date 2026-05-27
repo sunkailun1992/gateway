@@ -13,35 +13,29 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
-/**
- * TODO 跨域
- *
- * @author 孙凯伦
- * @className CORSFilter
- * @email 376253703@qq.com
- * @mobile 13777579028
- * @time 2022/2/11 5:03 PM
- */
 
+/**
+ * Handles CORS preflight requests before route forwarding.
+ */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class CorsFilter implements WebFilter {
 
     @Override
-    public Mono<Void> filter(ServerWebExchange serverWebExchange, WebFilterChain webFilterChain) {
-        ServerHttpRequest request = serverWebExchange.getRequest();
+    public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
+        ServerHttpRequest request = exchange.getRequest();
         if (CorsUtils.isCorsRequest(request)) {
-            ServerHttpResponse response = serverWebExchange.getResponse();
+            ServerHttpResponse response = exchange.getResponse();
             HttpHeaders headers = response.getHeaders();
-            headers.add("Access-Control-Allow-Origin", "*");
-            headers.add("Access-Control-Allow-Methods", "*");
-            headers.add("Access-Control-Max-Age", "18000");
-            headers.add("Access-Control-Allow-Headers", "*");
+            headers.set("Access-Control-Allow-Origin", "*");
+            headers.set("Access-Control-Allow-Methods", "*");
+            headers.set("Access-Control-Max-Age", "18000");
+            headers.set("Access-Control-Allow-Headers", "*");
             if (request.getMethod() == HttpMethod.OPTIONS) {
                 response.setStatusCode(HttpStatus.OK);
-                return Mono.empty();
+                return response.setComplete();
             }
         }
-        return webFilterChain.filter(serverWebExchange);
+        return chain.filter(exchange);
     }
 }
