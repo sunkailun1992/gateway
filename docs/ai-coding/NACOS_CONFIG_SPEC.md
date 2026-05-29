@@ -21,6 +21,8 @@ namespace: cfbf4c42-5ebb-4566-a095-30a568556a85
 - 不在 Nacos 路由里写业务权限规则。
 - 不在 Nacos 路由里写旧 token 鉴权规则。
 - 当前只保留 `user` 服务；新增微服务时让 AI 追加对应路由。
+- Knife4j 聚合配置和网关路由一起维护在远程 `gateway-spring.yaml`。
+- 新增微服务时，同步追加 `knife4j.gateway.routes` 文档路由。
 
 ## 当前 user 路由约定
 
@@ -41,6 +43,31 @@ namespace: cfbf4c42-5ebb-4566-a095-30a568556a85
 - `/auth/resources` 直接转发到 `user` 服务 `/auth/resources`。
 - `/user/auth/login` 兼容旧外部前缀，转发到 `user` 服务 `/auth/login`。
 - `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于文档聚合。
+
+## 当前 Knife4j 聚合约定
+
+网关使用官方 `knife4j-gateway-spring-boot-starter`，当前为手动聚合模式：
+
+```yaml
+knife4j:
+  gateway:
+    enabled: true
+    strategy: manual
+    tags-sorter: order
+    operations-sorter: order
+    routes:
+      - name: 用户服务
+        service-name: user
+        url: /user/v3/api-docs?group=default
+        context-path: /user
+        order: 1
+```
+
+访问入口：
+
+```text
+http://网关地址/doc.html
+```
 
 ## 发布后验证
 

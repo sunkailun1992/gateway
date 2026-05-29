@@ -18,7 +18,7 @@
 - 通过 `lb://service-name` 转发到后端服务。
 - 处理跨域预检。
 - 使用 `RequestRateLimiter` 做网关级限流。
-- 聚合 OpenAPI 资源列表。
+- 使用 Knife4j Gateway Starter 聚合 OpenAPI3 文档。
 - 从 Nacos 远程 `logging.yml` 读取日志配置。
 
 ## 认证边界
@@ -69,7 +69,11 @@
 
 - 本项目不再使用 springfox。
 - 后端服务使用 OpenAPI3 `/v3/api-docs`。
-- 网关 `/swagger-resources` 只基于 Gateway routes 生成资源列表，不读取业务 Controller。
+- 网关不再维护自写 `/swagger-resources` Controller。
+- 网关文档聚合使用官方 `knife4j-gateway-spring-boot-starter`。
+- 统一访问入口是 `/doc.html`。
+- 当前 `user` 服务文档地址配置为 `/user/v3/api-docs?group=default`。
+- 新增微服务时，同步在 Nacos 远程 `gateway-spring.yaml` 维护 `spring.cloud.gateway.routes` 和 `knife4j.gateway.routes`。
 
 ## 测试规范
 

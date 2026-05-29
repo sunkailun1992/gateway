@@ -1,6 +1,6 @@
 # gateway
 
-`gateway` 是基于 Spring Cloud Gateway 4 的入口网关服务，面向 Java 17 / Spring Boot 3.2.4 / Spring Cloud 2023.0.1。当前只承担路由转发、跨域预检、网关限流、OpenAPI 资源聚合和 Nacos 配置加载职责。
+`gateway` 是基于 Spring Cloud Gateway 4 的入口网关服务，面向 Java 17 / Spring Boot 3.2.4 / Spring Cloud 2023.0.1。当前只承担路由转发、跨域预检、网关限流、Knife4j 网关文档聚合和 Nacos 配置加载职责。
 
 ## 当前定位
 
@@ -21,7 +21,7 @@
 - 使用 `lb://service-name` 转发到后端服务。
 - 处理浏览器跨域预检请求。
 - 使用 `RequestRateLimiter` 做网关级限流。
-- 通过 `/swagger-resources` 聚合 OpenAPI 资源列表。
+- 通过 Knife4j Gateway Starter 聚合 OpenAPI3 文档。
 - 从 Nacos 远程 `logging.yml` 读取日志配置。
 
 ## 禁止事项
@@ -36,6 +36,7 @@
 - 不保留本地 `src/main/resources/logback-spring.xml`。
 - 不接入 SLS、Loghub 或阿里云日志 appender。
 - 不复制 `/Users/sunkailun/Desktop/个人/GitHub/utils` 的工具类源码到本项目。
+- 不恢复自写 `/swagger-resources` 聚合 Controller。
 
 ## 当前路由
 
@@ -56,6 +57,33 @@
 - `/auth/resources` 直接转发到 `user` 服务 `/auth/resources`。
 - `/user/auth/login` 兼容旧外部前缀，转发到 `user` 服务 `/auth/login`。
 - `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于文档聚合。
+
+## Knife4j 聚合
+
+网关使用官方 `knife4j-gateway-spring-boot-starter` 聚合微服务文档，访问地址：
+
+```text
+http://网关地址/doc.html
+```
+
+当前采用手动聚合模式：
+
+```yaml
+knife4j:
+  gateway:
+    enabled: true
+    strategy: manual
+    tags-sorter: order
+    operations-sorter: order
+    routes:
+      - name: 用户服务
+        service-name: user
+        url: /user/v3/api-docs?group=default
+        context-path: /user
+        order: 1
+```
+
+新增微服务时，在 Nacos 远程 `gateway-spring.yaml` 的 `spring.cloud.gateway.routes` 增加业务路由，同时在 `knife4j.gateway.routes` 增加对应文档路由。
 
 ## Nacos 配置
 
