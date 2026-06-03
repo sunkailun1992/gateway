@@ -9,7 +9,8 @@
 3. 修改 Nacos 配置前阅读 `NACOS_CONFIG_SPEC.md`，先读取远程 `gateway-spring.yaml`，再直接发布更新到 Nacos。
 4. 涉及 `user` 登录、资源、权限或 JWT 时，读取同级 `user` 项目真实 Controller、Service 和 `utils` 安全配置，不凭旧路径推断。
 5. 涉及公共能力时，优先复用同级 `utils` 项目，不在网关新增公共工具包。
-6. 修改完成后执行编译、测试和打包验证。
+6. 涉及 Redis、Nacos Discovery、Spring Admin、Zipkin 等基础设施地址时，优先引用 `reuse-configuration.yaml` 公共变量，不在业务配置中新增裸 IP。
+7. 修改完成后执行编译、测试和打包验证。
 
 ## 注释要求
 
@@ -29,6 +30,7 @@
 - 不要在仓库新增 `docs/nacos/gateway-spring.yaml`；网关路由配置只保留在 Nacos 远程配置中心。
 - 不要恢复 SLS/Loghub 日志依赖或 appender。
 - 不要让测试默认依赖未说明的外部服务；确实需要 Nacos 时要在结果中说明。
+- 不要在 `gateway-spring.yaml` 中新增散落的基础设施裸 IP；除本地 `bootstrap.yml` 连接 Nacos 的启动入口外，基础设施地址统一从公共配置读取。
 
 ## 推荐修改顺序
 
@@ -47,13 +49,13 @@
 ## Nacos 读取命令
 
 ```bash
-curl -sS "http://127.0.0.1:8848/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=cfbf4c42-5ebb-4566-a095-30a568556a85"
+curl -sS "http://172.16.1.39:8848/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=cfbf4c42-5ebb-4566-a095-30a568556a85"
 ```
 
 ## Nacos 发布命令
 
 ```bash
-curl -sS -X POST "http://127.0.0.1:8848/nacos/v1/cs/configs" \
+curl -sS -X POST "http://172.16.1.39:8848/nacos/v1/cs/configs" \
   --data-urlencode "dataId=gateway-spring.yaml" \
   --data-urlencode "group=test" \
   --data-urlencode "tenant=cfbf4c42-5ebb-4566-a095-30a568556a85" \

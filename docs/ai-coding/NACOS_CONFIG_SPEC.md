@@ -15,6 +15,7 @@ namespace: cfbf4c42-5ebb-4566-a095-30a568556a85
 ## 整理规则
 
 - 使用 `spring.data.redis`，不要使用 Boot 2 旧键 `spring.redis`。
+- Redis、Nacos Discovery、Spring Admin、Zipkin 等基础设施地址优先引用 `reuse-configuration.yaml` 的公共变量，不要在 `gateway-spring.yaml` 中新增裸 IP。
 - 使用 `spring.cloud.gateway.default-filters` 配置公共 `RequestRateLimiter`。
 - 每条路由只保留自己的 `id`、`uri`、`predicates` 和必要的路径改写。
 - 服务转发使用 `lb://服务名`。
@@ -72,6 +73,6 @@ http://网关地址/doc.html
 ## 发布后验证
 
 ```bash
-curl -sS "http://127.0.0.1:8848/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=cfbf4c42-5ebb-4566-a095-30a568556a85"
+curl -sS "http://172.16.1.39:8848/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=cfbf4c42-5ebb-4566-a095-30a568556a85"
 ./gradlew clean test bootJar --no-daemon
 ```
