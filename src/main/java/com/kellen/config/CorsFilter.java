@@ -26,16 +26,27 @@ public class CorsFilter implements WebFilter {
         ServerHttpRequest request = exchange.getRequest();
         if (CorsUtils.isCorsRequest(request)) {
             ServerHttpResponse response = exchange.getResponse();
-            HttpHeaders headers = response.getHeaders();
-            headers.set("Access-Control-Allow-Origin", "*");
-            headers.set("Access-Control-Allow-Methods", "*");
-            headers.set("Access-Control-Max-Age", "18000");
-            headers.set("Access-Control-Allow-Headers", "*");
+            response.beforeCommit(() -> {
+                applyCorsHeaders(request, response);
+                return Mono.empty();
+            });
             if (request.getMethod() == HttpMethod.OPTIONS) {
                 response.setStatusCode(HttpStatus.OK);
+                applyCorsHeaders(request, response);
                 return response.setComplete();
             }
         }
         return chain.filter(exchange);
+    }
+
+    private void applyCorsHeaders(ServerHttpRequest request, ServerHttpResponse response) {
+        HttpHeaders headers = response.getHeaders();
+        String origin = request.getHeaders().getOrigin();
+        headers.set("Access-Control-Allow-Origin", origin == null ? "*" : origin);
+        headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,PATCH,OPTIONS");
+        headers.set("Access-Control-Max-Age", "18000");
+        headers.set("Access-Control-Allow-Headers", "*");
+        headers.set("Access-Control-Allow-Credentials", "true");
+        headers.set("Access-Control-Expose-Headers", "Authorization");
     }
 }
