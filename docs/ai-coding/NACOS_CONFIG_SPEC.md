@@ -7,7 +7,7 @@
 ```text
 dataId: gateway-spring.yaml
 group: test
-namespace: cfbf4c42-5ebb-4566-a095-30a568556a85
+namespace: <NACOS_NAMESPACE>
 ```
 
 仓库不保留本地 `gateway-spring.yaml` 副本。每次修改都以 Nacos 远程配置为准：先读取远程完整内容，修改后整体发布回 Nacos。
@@ -73,6 +73,6 @@ http://网关地址/doc.html
 ## 发布后验证
 
 ```bash
-curl -sS "http://172.16.1.39:8848/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=cfbf4c42-5ebb-4566-a095-30a568556a85"
+curl -sS "http://<NACOS_ADDR>/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=<NACOS_NAMESPACE>"
 ./gradlew clean test bootJar --no-daemon
 ```

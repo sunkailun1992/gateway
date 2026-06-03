@@ -11,8 +11,8 @@
 - Spring Cloud：`2023.0.1`
 - Spring Cloud Alibaba：`2023.0.1.0`
 - Gradle Wrapper：`8.5`
-- 配置中心：Nacos `172.16.1.39:8848`
-- Nacos namespace：`cfbf4c42-5ebb-4566-a095-30a568556a85`
+- 配置中心：Nacos `<NACOS_ADDR>`
+- Nacos namespace：`<NACOS_NAMESPACE>`
 
 ## 服务边界
 
@@ -92,7 +92,7 @@ knife4j:
 ```text
 dataId: gateway-spring.yaml
 group: test
-namespace: cfbf4c42-5ebb-4566-a095-30a568556a85
+namespace: <NACOS_NAMESPACE>
 ```
 
 网关加载 `reuse-configuration.yaml` 作为基础设施地址统一入口。`gateway-spring.yaml` 中 Redis、Nacos Discovery 等地址只引用公共变量，不直接写裸 IP：
@@ -113,7 +113,7 @@ spring:
 读取远程配置：
 
 ```bash
-curl -sS "http://172.16.1.39:8848/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=cfbf4c42-5ebb-4566-a095-30a568556a85"
+curl -sS "http://<NACOS_ADDR>/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=<NACOS_NAMESPACE>"
 ```
 
 新增微服务时，先读取远程完整内容，再追加对应路由并整体发布回 Nacos。不要在仓库里新增本地 `gateway-spring.yaml` 副本。

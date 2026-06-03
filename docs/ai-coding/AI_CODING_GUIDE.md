@@ -49,16 +49,16 @@
 ## Nacos 读取命令
 
 ```bash
-curl -sS "http://172.16.1.39:8848/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=cfbf4c42-5ebb-4566-a095-30a568556a85"
+curl -sS "http://<NACOS_ADDR>/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=<NACOS_NAMESPACE>"
 ```
 
 ## Nacos 发布命令
 
 ```bash
-curl -sS -X POST "http://172.16.1.39:8848/nacos/v1/cs/configs" \
+curl -sS -X POST "http://<NACOS_ADDR>/nacos/v1/cs/configs" \
   --data-urlencode "dataId=gateway-spring.yaml" \
   --data-urlencode "group=test" \
-  --data-urlencode "tenant=cfbf4c42-5ebb-4566-a095-30a568556a85" \
+  --data-urlencode "tenant=<NACOS_NAMESPACE>" \
   --data-urlencode "type=yaml" \
   --data-urlencode "content=<整理后的完整 YAML 内容>"
 ```
