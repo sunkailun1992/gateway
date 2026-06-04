@@ -21,7 +21,7 @@ namespace: <NACOS_NAMESPACE>
 - 服务转发使用 `lb://服务名`。
 - 不在 Nacos 路由里写业务权限规则。
 - 不在 Nacos 路由里写旧 token 鉴权规则。
-- 当前只保留 `user` 服务；新增微服务时让 AI 追加对应路由。
+- 当前保留 `user` 和 `message` 服务；新增微服务时让 AI 追加对应路由。
 - Knife4j 聚合配置和网关路由一起维护在远程 `gateway-spring.yaml`。
 - 新增微服务时，同步追加 `knife4j.gateway.routes` 文档路由。
 
@@ -40,10 +40,28 @@ namespace: <NACOS_NAMESPACE>
 
 含义：
 
-- `/auth/login` 直接转发到 `user` 服务 `/auth/login`。
-- `/auth/resources` 直接转发到 `user` 服务 `/auth/resources`。
-- `/user/auth/login` 兼容旧外部前缀，转发到 `user` 服务 `/auth/login`。
+- `/auth/sessions` 直接转发到 `user` 服务 `/auth/sessions`。
+- `/auth/current/resources` 直接转发到 `user` 服务 `/auth/current/resources`。
+- `/user/auth/sessions` 兼容外部 user 前缀，转发到 `user` 服务 `/auth/sessions`。
 - `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于文档聚合。
+
+## 当前 message 路由约定
+
+`message` 服务统一使用 `/message/**` 网关前缀：
+
+```yaml
+- id: message
+  uri: lb://message
+  predicates:
+    - Path=/message/**
+  filters:
+    - RewritePath=/message/(?<segment>.*), /${segment}
+```
+
+含义：
+
+- `/message/**` 转发到 `message` 服务对应真实路径。
+- `/message/v3/api-docs` 转发到 `message` 服务 `/v3/api-docs`，用于文档聚合。
 
 ## 当前 Knife4j 聚合约定
 
@@ -62,6 +80,11 @@ knife4j:
         url: /user/v3/api-docs?group=default
         context-path: /user
         order: 1
+      - name: 消息服务
+        service-name: message
+        url: /message/v3/api-docs?group=default
+        context-path: /message
+        order: 2
 ```
 
 访问入口：

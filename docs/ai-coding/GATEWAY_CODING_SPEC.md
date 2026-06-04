@@ -25,8 +25,8 @@
 
 后端升级后，认证主线是 `Authorization: Bearer <jwt>`：
 
-- 登录入口在 `user` 服务 `/auth/login`。
-- 当前用户资源入口在 `user` 服务 `/auth/resources`。
+- 登录入口在 `user` 服务 `/auth/sessions`。
+- 当前用户资源入口在 `user` 服务 `/auth/current/resources`。
 - 统一响应由 `utils` 的 `ApiResponse<T>` 提供。
 - Spring Security、JWT 解析、用户上下文、多租户上下文由 `utils` 和业务服务处理。
 
@@ -51,12 +51,13 @@
 
 - Nacos 路由配置只保存在远程配置中心，不在仓库保留本地 YAML 副本。
 - 公共限流放到 `spring.cloud.gateway.default-filters`，避免每条路由重复配置。
-- 当前只配置 `user` 服务路由。
+- 当前配置 `user` 和 `message` 服务路由。
 - 新增微服务时，让 AI 读取远程 `gateway-spring.yaml` 后追加一条路由并整体发布回 Nacos。
 - 常规业务服务使用 `/{service}/** + StripPrefix=1`。
 - `user` 服务同时支持旧 `/user/**` 前缀和新 `/auth/**` 直达。
-- 旧 `/user/**` 使用 `RewritePath=/user/(?<segment>.*), /${segment}`，保证 `/user/auth/login` 仍可转到后端 `/auth/login`。
-- 新 `/auth/**` 不剥离前缀，保证 `/auth/login` 直达后端 `/auth/login`。
+- 旧 `/user/**` 使用 `RewritePath=/user/(?<segment>.*), /${segment}`，保证 `/user/auth/sessions` 仍可转到后端 `/auth/sessions`。
+- 新 `/auth/**` 不剥离前缀，保证 `/auth/sessions` 直达后端 `/auth/sessions`。
+- `message` 服务使用 `/message/**` 前缀，并通过 `RewritePath=/message/(?<segment>.*), /${segment}` 转发到后端真实路径。
 
 ## 日志规范
 
@@ -73,6 +74,7 @@
 - 网关文档聚合使用官方 `knife4j-gateway-spring-boot-starter`。
 - 统一访问入口是 `/doc.html`。
 - 当前 `user` 服务文档地址配置为 `/user/v3/api-docs?group=default`。
+- 当前 `message` 服务文档地址配置为 `/message/v3/api-docs?group=default`。
 - 新增微服务时，同步在 Nacos 远程 `gateway-spring.yaml` 维护 `spring.cloud.gateway.routes` 和 `knife4j.gateway.routes`。
 
 ## 测试规范

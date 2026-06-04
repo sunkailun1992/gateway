@@ -40,7 +40,7 @@
 
 ## 当前路由
 
-当前远程 Nacos `gateway-spring.yaml` 只维护 `user` 服务路由：
+当前远程 Nacos `gateway-spring.yaml` 维护 `user` 和 `message` 服务路由：
 
 ```yaml
 - id: user
@@ -49,14 +49,21 @@
     - Path=/user/**,/auth/**
   filters:
     - RewritePath=/user/(?<segment>.*), /${segment}
+- id: message
+  uri: lb://message
+  predicates:
+    - Path=/message/**
+  filters:
+    - RewritePath=/message/(?<segment>.*), /${segment}
 ```
 
 路由含义：
 
-- `/auth/login` 直接转发到 `user` 服务 `/auth/login`。
-- `/auth/resources` 直接转发到 `user` 服务 `/auth/resources`。
-- `/user/auth/login` 兼容旧外部前缀，转发到 `user` 服务 `/auth/login`。
+- `/auth/sessions` 直接转发到 `user` 服务 `/auth/sessions`。
+- `/auth/current/resources` 直接转发到 `user` 服务 `/auth/current/resources`。
+- `/user/auth/sessions` 兼容外部 user 前缀，转发到 `user` 服务 `/auth/sessions`。
 - `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于文档聚合。
+- `/message/**` 转发到 `message` 服务对应路径，例如 `/message/v3/api-docs` 转发到 `/v3/api-docs`。
 
 ## Knife4j 聚合
 
@@ -81,6 +88,11 @@ knife4j:
         url: /user/v3/api-docs?group=default
         context-path: /user
         order: 1
+      - name: 消息服务
+        service-name: message
+        url: /message/v3/api-docs?group=default
+        context-path: /message
+        order: 2
 ```
 
 新增微服务时，在 Nacos 远程 `gateway-spring.yaml` 的 `spring.cloud.gateway.routes` 增加业务路由，同时在 `knife4j.gateway.routes` 增加对应文档路由。
@@ -141,8 +153,8 @@ java -jar build/libs/gateway-1.0.0.jar
 如果本机 `127.0.0.1:8888` 被 SSH 隧道或其他进程占用，使用本机局域网 IP 访问网关，例如：
 
 ```text
-http://192.168.101.141:8888/auth/login
-http://192.168.101.141:8888/user/auth/login
+http://192.168.101.141:8888/auth/sessions
+http://192.168.101.141:8888/message/doc.html
 ```
 
 ## AI 编码入口
