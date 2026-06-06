@@ -6,15 +6,17 @@
 
 1. 先读 `AI_CODING_GUIDE.md`，确认执行步骤和禁止事项。
 2. 再读 `GATEWAY_CODING_SPEC.md`，确认网关服务边界、技术基线、认证转发和测试要求。
-3. 修改 Nacos 配置时读 `NACOS_CONFIG_SPEC.md`，直接读取和更新 Nacos 远程 `gateway-spring.yaml`。
-4. 涉及后端认证、统一响应、JWT、权限、多租户等公共能力时，对照同级 `user` 和 `utils` 项目，不在网关重复实现。
-5. 修改完成后执行 `./gradlew clean test bootJar --no-daemon`。
+3. 涉及路由暴露、请求头透传、跨域、日志、代理转发、监控入口或文档入口时，读 `SECURITY_CODING_SPEC.md`。
+4. 修改 Nacos 配置时读 `NACOS_CONFIG_SPEC.md`，直接读取和更新 Nacos 远程 `gateway-spring.yaml`。
+5. 涉及后端认证、统一响应、JWT、权限、多租户等公共能力时，对照同级 `user` 和 `utils` 项目，不在网关重复实现。
+6. 修改完成后执行 `./gradlew clean test bootJar --no-daemon`。
 
 ## 必读结论
 
 - 网关只负责路由、跨域、限流、Knife4j 网关文档聚合和请求转发。
 - 网关不再做旧 Redis `token` 鉴权，不再调用 `user/authUserSystem`，也不解析 `ApiResponse`。
 - 网关不做任何 token、header、用户、权限、Actuator 自定义鉴权过滤；安全认证由后端服务和运维侧访问控制处理。
+- 安全规则独立维护在 `SECURITY_CODING_SPEC.md`，新增路由或改网关配置时必须同步检查路由暴露、请求头透传、CORS、日志脱敏、SSRF、开放重定向和运维入口访问控制。
 - 新后端认证使用 `Authorization: Bearer <jwt>`，网关必须原样透传请求头，由 `user` 和业务服务的 Spring Security 处理。
 - 路由配置只保存在 Nacos；仓库不保留 `gateway-spring.yaml` 本地副本。
 - 当前远程配置已有 `user` 和 `message` 项目路由；新增微服务时让 AI 在 Nacos 远程配置里追加一条网关路由。
@@ -37,5 +39,6 @@ docs/
     README.md
     AI_CODING_GUIDE.md
     GATEWAY_CODING_SPEC.md
+    SECURITY_CODING_SPEC.md
     NACOS_CONFIG_SPEC.md
 ```
