@@ -5,11 +5,13 @@
 ## 快速阅读
 
 1. 先读 `AI_CODING_GUIDE.md`，确认执行步骤和禁止事项。
-2. 再读 `GATEWAY_CODING_SPEC.md`，确认网关服务边界、技术基线、认证转发和测试要求。
-3. 涉及路由暴露、请求头透传、跨域、日志、代理转发、监控入口或文档入口时，读 `SECURITY_CODING_SPEC.md`。
-4. 修改 Nacos 配置时读 `NACOS_CONFIG_SPEC.md`，直接读取和更新 Nacos 远程 `gateway-spring.yaml`。
-5. 涉及后端认证、统一响应、JWT、权限、多租户等公共能力时，对照同级 `user` 和 `utils` 项目，不在网关重复实现。
-6. 修改完成后执行 `./gradlew clean test bootJar --no-daemon`。
+2. 再读 `AI_AUTOMATION_WORKFLOW.md`，按需求说明、验收标准、开发手册、测试说明和交付说明组织自动化开发。
+3. 再读 `AI_ENGINEERING_GUARDRAILS.md`，确认风险分级、Definition of Done、测试门禁、安全门禁和交付说明。
+4. 再读 `GATEWAY_CODING_SPEC.md`，确认网关服务边界、技术基线、认证转发和测试要求。
+5. 涉及路由暴露、请求头透传、跨域、日志、代理转发、监控入口或文档入口时，读 `SECURITY_CODING_SPEC.md`。
+6. 修改 Nacos 配置时读 `NACOS_CONFIG_SPEC.md`，直接读取和更新 Nacos 远程 `gateway-spring.yaml`。
+7. 涉及后端认证、统一响应、JWT、权限、多租户等公共能力时，对照同级 `user` 和 `utils` 项目，不在网关重复实现。
+8. 修改完成后执行 `./gradlew clean test bootJar --no-daemon`。
 
 ## 必读结论
 
@@ -24,6 +26,8 @@
 - Springfox 和自写 `/swagger-resources` 聚合已移除；OpenAPI 聚合走官方 Knife4j Gateway Starter，入口是 `/doc.html`。
 - 日志配置来自 Nacos 远程 `logging.yml`，仓库不保留本地 `logback-spring.xml`。
 - AI 新增或修改 README、AI 规范、配置、脚本、测试、示例和代码时，禁止写入个人电脑绝对路径、本机下载目录、本机 JDK 路径或本机仓库完整路径；需要表达目录关系时使用相对路径、环境变量或 `<PLACEHOLDER>` 占位符。
+- AI 开始修改网关或配置前必须按 `AI_AUTOMATION_WORKFLOW.md` 先整理需求说明、验收标准和开发手册；小改动可以简化输出，但检查项不能跳过。
+- AI 完成网关或配置修改后必须按 `AI_ENGINEERING_GUARDRAILS.md` 做风险分级、Definition of Done、测试证据、安全检查、风险和回滚说明。
 
 ## AI 注释要求
 
@@ -39,6 +43,8 @@ docs/
   ai-coding/
     README.md
     AI_CODING_GUIDE.md
+    AI_AUTOMATION_WORKFLOW.md
+    AI_ENGINEERING_GUARDRAILS.md
     GATEWAY_CODING_SPEC.md
     SECURITY_CODING_SPEC.md
     NACOS_CONFIG_SPEC.md
