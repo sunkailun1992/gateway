@@ -35,7 +35,7 @@
 - 不保留本地 `docs/nacos/gateway-spring.yaml`。
 - 不保留本地 `src/main/resources/logback-spring.xml`。
 - 不接入 SLS、Loghub 或阿里云日志 appender。
-- 不复制 `/Users/sunkailun/Desktop/个人/GitHub/utils` 的工具类源码到本项目。
+- 不复制同级 `../utils` 的工具类源码到本项目。
 - 不恢复自写 `/swagger-resources` 聚合 Controller。
 
 ## 当前路由

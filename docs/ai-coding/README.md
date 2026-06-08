@@ -23,6 +23,7 @@
 - Spring Cloud Gateway 4 已不使用 Ribbon；不要恢复旧 `RewriteRoundRobinRule`。
 - Springfox 和自写 `/swagger-resources` 聚合已移除；OpenAPI 聚合走官方 Knife4j Gateway Starter，入口是 `/doc.html`。
 - 日志配置来自 Nacos 远程 `logging.yml`，仓库不保留本地 `logback-spring.xml`。
+- AI 新增或修改 README、AI 规范、配置、脚本、测试、示例和代码时，禁止写入个人电脑绝对路径、本机下载目录、本机 JDK 路径或本机仓库完整路径；需要表达目录关系时使用相对路径、环境变量或 `<PLACEHOLDER>` 占位符。
 
 ## AI 注释要求
 

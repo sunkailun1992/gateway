@@ -66,6 +66,14 @@
 - 不接入 SLS、Loghub 或阿里云日志 appender。
 - 不在日志配置中写入 accessKey、secretKey 等凭证。
 
+## 路径与本机环境规范
+
+- README、AI 规范、YAML、properties、脚本、测试、示例和 Java 代码中不得写入个人电脑绝对路径、下载目录、IDE 路径、JDK 安装路径或本机仓库完整路径。
+- 需要描述同级仓库时，使用 `../user`、`../message`、`../utils` 这类相对路径，不使用开发者机器上的完整目录。
+- 需要描述可变安装目录、日志目录、临时目录或 JDK 路径时，使用环境变量、Nacos 配置、`~` 用户目录、`${user.home}`、`${java.io.tmpdir}` 或 `<PLACEHOLDER>` 占位符。
+- 网关路由和基础设施地址优先使用 Nacos 公共配置变量；本地私有路径不得提交到仓库。
+- 提交前必须使用 `rg` 搜索本机用户名、用户目录、仓库根目录和系统盘路径关键字，检查是否残留本机路径。
+
 ## OpenAPI 规范
 
 - 本项目不再使用 springfox。
