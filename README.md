@@ -161,9 +161,10 @@ http://192.168.101.141:8888/message/doc.html
 
 AI 修改本项目时必须先阅读：
 
-1. `docs/ai-coding/README.md`
-2. `docs/ai-coding/AI_CODING_GUIDE.md`
-3. `docs/ai-coding/GATEWAY_CODING_SPEC.md`
-4. `docs/ai-coding/NACOS_CONFIG_SPEC.md`
+1. `AGENTS.md`
+2. `docs/ai-coding/README.md`
+3. `docs/ai-coding/AI_CODING_GUIDE.md`
+4. `docs/ai-coding/GATEWAY_CODING_SPEC.md`
+5. `docs/ai-coding/NACOS_CONFIG_SPEC.md`
 
 AI 新增或修改 Java 代码时，必须按项目要求补充中文逐行注释；包声明、import、空行和单独的大括号不需要写无意义注释。
