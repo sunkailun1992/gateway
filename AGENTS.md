@@ -18,14 +18,16 @@
 2. `docs/ai-coding/README.md`：确认 AI 编码入口和网关必读结论。
 3. `docs/ai-coding/AI_CODING_GUIDE.md`：确认执行步骤、禁止事项和验证命令。
 4. `docs/ai-coding/AI_COMMENT_STYLE_GUIDE.md`：确认注释规范、自解释优先、禁止注释掉死代码和排版要求。
-5. `docs/ai-coding/AI_ENGINEERING_GUARDRAILS.md`：确认风险分级、Definition of Done 和交付门禁。
-6. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
-7. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
-8. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
+5. `docs/ai-coding/AI_DESIGN_PATTERN_GUIDE.md`：确认网关 Route、Predicate、Filter、Nacos 配置和禁止业务鉴权回流规则。
+6. `docs/ai-coding/AI_ENGINEERING_GUARDRAILS.md`：确认风险分级、Definition of Done 和交付门禁。
+7. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
+8. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
+9. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
 
 ## 项目边界
 
 - 网关只负责路由、跨域、限流、Knife4j 文档聚合和请求转发。
+- 新增路由、过滤器、Nacos 配置处理或 Knife4j 聚合能力时，必须优先沿用 `AI_DESIGN_PATTERN_GUIDE.md` 中的 Gateway Route、Predicate、Filter Chain、Adapter、Configuration Properties 等网关适用模式。
 - 网关必须原样透传 `Authorization: Bearer <jwt>` 等必要请求头，由 `user` 和业务服务处理认证授权。
 - 网关不实现业务级鉴权、字段级授权、租户隔离、用户身份解析和数据权限。
 - 路由配置以 Nacos 远程 `gateway-spring.yaml` 为准，仓库不保留本地配置副本。
