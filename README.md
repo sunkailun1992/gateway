@@ -167,4 +167,4 @@ AI 修改本项目时必须先阅读：
 4. `docs/ai-coding/GATEWAY_CODING_SPEC.md`
 5. `docs/ai-coding/NACOS_CONFIG_SPEC.md`
 
-AI 新增或修改 Java 代码时，必须按项目要求补充中文逐行注释；包声明、import、空行和单独的大括号不需要写无意义注释。
+AI 新增或修改代码时，注释要让人看懂这段代码 AI 为什么这样写、在网关里承担什么职责，不采用机械逐行注释，也不要写过时、凑数或误导的注释；完整规则见 `docs/ai-coding/AI_CODING_GUIDE.md` 的“注释要求”小节。
