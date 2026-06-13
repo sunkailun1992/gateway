@@ -17,10 +17,11 @@
 1. `README.md`：确认当前网关职责、本地地址、路由和验证方式。
 2. `docs/ai-coding/README.md`：确认 AI 编码入口和网关必读结论。
 3. `docs/ai-coding/AI_CODING_GUIDE.md`：确认执行步骤、禁止事项和验证命令。
-4. `docs/ai-coding/AI_ENGINEERING_GUARDRAILS.md`：确认风险分级、Definition of Done 和交付门禁。
-5. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
-6. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
-7. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
+4. `docs/ai-coding/AI_COMMENT_STYLE_GUIDE.md`：确认注释规范、自解释优先、禁止注释掉死代码和排版要求。
+5. `docs/ai-coding/AI_ENGINEERING_GUARDRAILS.md`：确认风险分级、Definition of Done 和交付门禁。
+6. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
+7. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
+8. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
 
 ## 项目边界
 
