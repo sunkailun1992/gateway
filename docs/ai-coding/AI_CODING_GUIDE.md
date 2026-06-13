@@ -7,14 +7,15 @@
 1. 阅读当前项目代码，确认改动属于网关边界。
 2. 阅读 `AI_AUTOMATION_WORKFLOW.md`，先整理需求说明、验收标准、开发手册、测试说明和交付说明。
 3. 阅读 `AI_ENGINEERING_GUARDRAILS.md`，确认风险等级、必须测试、安全门禁、Review 门禁和交付说明。
-4. 阅读 `AI_DESIGN_PATTERN_GUIDE.md`，确认网关 Route、Predicate、Filter、Nacos 配置和禁止业务鉴权回流规则。
-5. 阅读 `GATEWAY_CODING_SPEC.md`，确认不能把业务认证、业务权限或公共工具重新写回网关。
-6. 修改 Nacos 配置前阅读 `NACOS_CONFIG_SPEC.md`，先读取远程 `gateway-spring.yaml`，再直接发布更新到 Nacos。
-7. 涉及 `user` 登录、资源、权限或 JWT 时，读取同级 `user` 项目真实 Controller、Service 和 `utils` 安全配置，不凭旧路径推断。
-8. 涉及公共能力时，优先复用同级 `utils` 项目，不在网关新增公共工具包。
-9. 涉及 Redis、Nacos Discovery、Spring Admin、Zipkin 等基础设施地址时，优先引用 `reuse-configuration.yaml` 公共变量，不在业务配置中新增裸 IP。
-10. 新增或修改 README、AI 规范、配置、脚本、测试、示例和代码时，禁止写入个人电脑绝对路径；目录关系使用相对路径，外部安装位置使用环境变量或 `<PLACEHOLDER>` 占位符。
-11. 修改完成后执行编译、测试和打包验证，并按 `AI_ENGINEERING_GUARDRAILS.md` 输出风险、回滚和未验证项。
+4. 阅读 `AI_DIRECTORY_STRUCTURE_GUIDE.md`，确认 Spring Cloud Gateway 目录、资源、文档和跨项目边界。
+5. 阅读 `AI_DESIGN_PATTERN_GUIDE.md`，确认网关 Route、Predicate、Filter、Nacos 配置和禁止业务鉴权回流规则。
+6. 阅读 `GATEWAY_CODING_SPEC.md`，确认不能把业务认证、业务权限或公共工具重新写回网关。
+7. 修改 Nacos 配置前阅读 `NACOS_CONFIG_SPEC.md`，先读取远程 `gateway-spring.yaml`，再直接发布更新到 Nacos。
+8. 涉及 `user` 登录、资源、权限或 JWT 时，读取同级 `user` 项目真实 Controller、Service 和 `utils` 安全配置，不凭旧路径推断。
+9. 涉及公共能力时，优先复用同级 `utils` 项目，不在网关新增公共工具包。
+10. 涉及 Redis、Nacos Discovery、Spring Admin、Zipkin 等基础设施地址时，优先引用 `reuse-configuration.yaml` 公共变量，不在业务配置中新增裸 IP。
+11. 新增或修改 README、AI 规范、配置、脚本、测试、示例和代码时，禁止写入个人电脑绝对路径；目录关系使用相对路径，外部安装位置使用环境变量或 `<PLACEHOLDER>` 占位符。
+12. 修改完成后执行编译、测试和打包验证，并按 `AI_ENGINEERING_GUARDRAILS.md` 输出风险、回滚和未验证项。
 
 ## 多智能体协作规则
 

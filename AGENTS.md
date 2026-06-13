@@ -17,17 +17,18 @@
 1. `README.md`：确认当前网关职责、本地地址、路由和验证方式。
 2. `docs/ai-coding/README.md`：确认 AI 编码入口和网关必读结论。
 3. `docs/ai-coding/AI_CODING_GUIDE.md`：确认执行步骤、禁止事项和验证命令。
-4. `docs/ai-coding/AI_COMMENT_STYLE_GUIDE.md`：确认注释规范、自解释优先、禁止注释掉死代码和排版要求。
-5. `docs/ai-coding/AI_DESIGN_PATTERN_GUIDE.md`：确认网关 Route、Predicate、Filter、Nacos 配置和禁止业务鉴权回流规则。
-6. `docs/ai-coding/AI_ENGINEERING_GUARDRAILS.md`：确认风险分级、Definition of Done 和交付门禁。
-7. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
-8. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
-9. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
+4. `docs/ai-coding/AI_DIRECTORY_STRUCTURE_GUIDE.md`：确认 Spring Cloud Gateway 目录、资源、文档和跨项目边界。
+5. `docs/ai-coding/AI_COMMENT_STYLE_GUIDE.md`：确认注释规范、自解释优先、禁止注释掉死代码和排版要求。
+6. `docs/ai-coding/AI_DESIGN_PATTERN_GUIDE.md`：确认网关 Route、Predicate、Filter、Nacos 配置和禁止业务鉴权回流规则。
+7. `docs/ai-coding/AI_ENGINEERING_GUARDRAILS.md`：确认风险分级、Definition of Done 和交付门禁。
+8. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
+9. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
+10. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
 
 ## 项目边界
 
 - 网关只负责路由、跨域、限流、Knife4j 文档聚合和请求转发。
-- 新增路由、过滤器、Nacos 配置处理或 Knife4j 聚合能力时，必须优先沿用 `AI_DESIGN_PATTERN_GUIDE.md` 中的 Gateway Route、Predicate、Filter Chain、Adapter、Configuration Properties 等网关适用模式。
+- 新增路由、过滤器、Nacos 配置处理或 Knife4j 聚合能力时，必须优先沿用 `docs/ai-coding/AI_DESIGN_PATTERN_GUIDE.md` 中的 Gateway Route、Predicate、Filter Chain、Adapter、Configuration Properties 等网关适用模式。
 - 网关必须原样透传 `Authorization: Bearer <jwt>` 等必要请求头，由 `user` 和业务服务处理认证授权。
 - 网关不实现业务级鉴权、字段级授权、租户隔离、用户身份解析和数据权限。
 - 路由配置以 Nacos 远程 `gateway-spring.yaml` 为准，仓库不保留本地配置副本。
@@ -36,7 +37,7 @@
 
 - 新增路由、改跨域、改请求头、改文档入口、改监控入口、改 Nacos 配置默认高风险。
 - 新增或修改功能前，必须按 `AI_AUTOMATION_WORKFLOW.md` 整理需求说明、验收标准和开发手册。
-- 完成后必须按 `AI_ENGINEERING_GUARDRAILS.md` 做风险分级、Definition of Done、测试证据、安全检查、风险和回滚说明。
+- 完成后必须按 `docs/ai-coding/AI_ENGINEERING_GUARDRAILS.md` 做风险分级、Definition of Done、测试证据、安全检查、风险和回滚说明。
 - 修改 Nacos 配置时，必须读回权威配置源再报告结果，不能只根据本地文件或发布命令判断成功。
 
 ## 多智能体协作规则

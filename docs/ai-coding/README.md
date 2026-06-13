@@ -5,14 +5,15 @@
 ## 快速阅读
 
 1. 先读 `AI_CODING_GUIDE.md`，确认执行步骤和禁止事项。
-2. 再读 `AI_DESIGN_PATTERN_GUIDE.md`，确认网关设计模式、框架扩展点和禁止业务鉴权回流规则。
-3. 再读 `AI_AUTOMATION_WORKFLOW.md`，按需求说明、验收标准、开发手册、测试说明和交付说明组织自动化开发。
-4. 再读 `AI_ENGINEERING_GUARDRAILS.md`，确认风险分级、Definition of Done、测试门禁、安全门禁和交付说明。
-5. 再读 `GATEWAY_CODING_SPEC.md`，确认网关服务边界、技术基线、认证转发和测试要求。
-6. 涉及路由暴露、请求头透传、跨域、日志、代理转发、监控入口或文档入口时，读 `SECURITY_CODING_SPEC.md`。
-7. 修改 Nacos 配置时读 `NACOS_CONFIG_SPEC.md`，直接读取和更新 Nacos 远程 `gateway-spring.yaml`。
-8. 涉及后端认证、统一响应、JWT、权限、多租户等公共能力时，对照同级 `user` 和 `utils` 项目，不在网关重复实现。
-9. 修改完成后执行 `./gradlew clean test bootJar --no-daemon`。
+2. 再读 `AI_DIRECTORY_STRUCTURE_GUIDE.md`，确认 Spring Cloud Gateway 目录、资源、文档和跨项目边界。
+3. 再读 `AI_DESIGN_PATTERN_GUIDE.md`，确认网关设计模式、框架扩展点和禁止业务鉴权回流规则。
+4. 再读 `AI_AUTOMATION_WORKFLOW.md`，按需求说明、验收标准、开发手册、测试说明和交付说明组织自动化开发。
+5. 再读 `AI_ENGINEERING_GUARDRAILS.md`，确认风险分级、Definition of Done、测试门禁、安全门禁和交付说明。
+6. 再读 `GATEWAY_CODING_SPEC.md`，确认网关服务边界、技术基线、认证转发和测试要求。
+7. 涉及路由暴露、请求头透传、跨域、日志、代理转发、监控入口或文档入口时，读 `SECURITY_CODING_SPEC.md`。
+8. 修改 Nacos 配置时读 `NACOS_CONFIG_SPEC.md`，直接读取和更新 Nacos 远程 `gateway-spring.yaml`。
+9. 涉及后端认证、统一响应、JWT、权限、多租户等公共能力时，对照同级 `user` 和 `utils` 项目，不在网关重复实现。
+10. 修改完成后执行 `./gradlew clean test bootJar --no-daemon`。
 
 ## 必读结论
 
@@ -46,6 +47,7 @@ docs/
   ai-coding/
     README.md
     AI_CODING_GUIDE.md
+    AI_DIRECTORY_STRUCTURE_GUIDE.md
     AI_DESIGN_PATTERN_GUIDE.md
     AI_AUTOMATION_WORKFLOW.md
     AI_ENGINEERING_GUARDRAILS.md
