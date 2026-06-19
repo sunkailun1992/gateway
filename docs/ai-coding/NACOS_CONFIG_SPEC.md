@@ -22,8 +22,8 @@ namespace: <NACOS_NAMESPACE>
 - 不在 Nacos 路由里写业务权限规则。
 - 不在 Nacos 路由里写旧 token 鉴权规则。
 - 当前保留 `user` 和 `message` 服务；新增微服务时让 AI 追加对应路由。
-- Knife4j 聚合配置和网关路由一起维护在远程 `gateway-spring.yaml`。
-- 新增微服务时，同步追加 `knife4j.gateway.routes` 文档路由。
+- OpenAPI 原始文档通过普通网关路由转发，不维护单独的文档 UI 聚合配置。
+- 新增微服务时，只需要保证对应前缀能转发 `/v3/api-docs`。
 
 ## 当前 user 路由约定
 
@@ -43,7 +43,7 @@ namespace: <NACOS_NAMESPACE>
 - `/auth/sessions` 直接转发到 `user` 服务 `/auth/sessions`。
 - `/auth/current/resources` 直接转发到 `user` 服务 `/auth/current/resources`。
 - `/user/auth/sessions` 兼容外部 user 前缀，转发到 `user` 服务 `/auth/sessions`。
-- `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于文档聚合。
+- `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于读取 OpenAPI 原始文档。
 
 ## 当前 message 路由约定
 
@@ -61,36 +61,40 @@ namespace: <NACOS_NAMESPACE>
 含义：
 
 - `/message/**` 转发到 `message` 服务对应真实路径。
-- `/message/v3/api-docs` 转发到 `message` 服务 `/v3/api-docs`，用于文档聚合。
+- `/message/v3/api-docs` 转发到 `message` 服务 `/v3/api-docs`，用于读取 OpenAPI 原始文档。
 
-## 当前 Knife4j 聚合约定
+## 当前 AI 路由约定
 
-网关使用官方 `knife4j-gateway-spring-boot-starter`，当前为手动聚合模式：
+AI 服务需要同时保留小程序现有真实路径和统一网关前缀：
 
 ```yaml
-knife4j:
-  gateway:
-    enabled: true
-    strategy: manual
-    tags-sorter: order
-    operations-sorter: order
-    routes:
-      - name: 用户服务
-        service-name: user
-        url: /user/v3/api-docs?group=default
-        context-path: /user
-        order: 1
-      - name: 消息服务
-        service-name: message
-        url: /message/v3/api-docs?group=default
-        context-path: /message
-        order: 2
+- id: ai-direct
+  uri: lb://ai
+  predicates:
+    - Path=/api/ai/**,/api/v1/files/**,/api/files/**,/api/v1/auth/**,/api/auth/**
+- id: ai-prefix
+  uri: lb://ai
+  predicates:
+    - Path=/ai/**
+  filters:
+    - RewritePath=^/ai/(?<segment>.*), /${segment}
 ```
 
-访问入口：
+含义：
+
+- `/api/ai/**` 转发到 AI 对话和问卷接口，不改写路径。
+- `/api/v1/files/**` 和 `/api/files/**` 转发到 AI 文件服务，不改写路径。
+- `/api/v1/auth/**` 和 `/api/auth/**` 转发到 AI 微信小程序登录接口，不改写路径。
+- `/ai/**` 用作统一前缀，`/ai/v3/api-docs` 转发到 `/v3/api-docs`。
+
+## 当前 OpenAPI 文档转发约定
+
+网关不引入文档聚合 starter，也不维护独立聚合配置。通过普通路由访问各服务 OpenAPI 原始文档：
 
 ```text
-http://网关地址/doc.html
+http://网关地址/user/v3/api-docs
+http://网关地址/message/v3/api-docs
+http://网关地址/ai/v3/api-docs
 ```
 
 ## 发布后验证

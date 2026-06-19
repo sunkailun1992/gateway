@@ -3,7 +3,7 @@
  */
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.2.4'
+    id 'org.springframework.boot' version '4.0.4'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 /**
@@ -15,9 +15,9 @@ description = 'gateway'
 
 ext {
     javaReleaseVersion = 17
-    springCloudVersion = '2023.0.1'
-    springCloudAlibabaVersion = '2023.0.1.0'
-    knife4jVersion = '4.5.0'
+    springCloudVersion = '2025.1.1'
+    springCloudAlibabaVersion = '2025.1.0.0'
+    nacosClientVersion = '3.2.2'
 }
 /**
  * 编码规则
@@ -30,6 +30,11 @@ java {
     sourceCompatibility = JavaVersion.toVersion(javaReleaseVersion)
     targetCompatibility = JavaVersion.toVersion(javaReleaseVersion)
 }
+
+springBoot {
+    mainClass = 'com.kellen.GatewayApplication'
+}
+
 /**
  * 镜像仓库地址
  */
@@ -74,17 +79,24 @@ dependencyManagement {
         mavenBom "com.alibaba.cloud:spring-cloud-alibaba-dependencies:${springCloudAlibabaVersion}"
     }
 }
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'com.alibaba.nacos'
+                && (details.requested.name == 'nacos-client' || details.requested.name.startsWith('nacos-'))) {
+            details.useVersion nacosClientVersion
+            details.because 'Nacos client must match the 3.2.2 server line used by the shared microservice environment.'
+        }
+    }
+}
 /**
  * 引入的jar
  */
 dependencies {
-    implementation 'org.springframework.cloud:spring-cloud-starter-bootstrap'
     implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery'
     implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config'
-    implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
+    implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
-    implementation "com.github.xiaoymin:knife4j-gateway-spring-boot-starter:${knife4jVersion}"
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

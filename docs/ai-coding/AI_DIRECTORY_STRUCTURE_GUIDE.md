@@ -34,13 +34,13 @@ src/main/java/com/kellen
 
 | 目录 | 职责 |
 | --- | --- |
-| `com/kellen/config` | Gateway、Knife4j、Nacos、跨域、限流、文档聚合等网关配置。 |
-| `src/main/resources` | `application.yml`、`bootstrap.yml` 等启动所需资源。 |
+| `com/kellen/config` | Gateway、OpenAPI、Nacos、跨域、限流、文档聚合等网关配置。 |
+| `src/main/resources` | `application.yml` 等启动所需资源。 |
 | `docs/ai-coding` | 网关 AI 编程规范、Nacos 配置规范和安全规则。 |
 
 ## 目录规则
 
-- 新增路由、过滤器、Predicate、跨域或 Knife4j 聚合能力优先放在 `com/kellen/config` 或清晰命名的网关子包中。
+- 新增路由、过滤器、Predicate、跨域或 OpenAPI 文档转发能力优先放在 `com/kellen/config` 或清晰命名的网关子包中。
 - 网关不得新增业务域目录，例如 `auth`、`user`、`message` 业务实现目录；认证授权应由后端服务处理，网关只透传必要请求头。
 - Nacos 权威配置不落本地副本；需要说明配置时写进 `NACOS_CONFIG_SPEC.md` 或 README，不提交真实远程配置和密钥。
 - 新增测试必须放 `src/test/java/com/kellen`，测试资源放 `src/test/resources`。

@@ -6,7 +6,7 @@
 
 - 项目名称：`gateway`
 - 项目类型：Spring Cloud Gateway 网关
-- 技术栈：Java 17、Spring Boot、Spring Cloud Gateway、Knife4j Gateway、Nacos、Gradle
+- 技术栈：Java 17、Spring Boot、Spring Cloud Gateway、OpenAPI、Nacos、Gradle
 - 同级服务：`../user`、`../message` 和其它后端服务
 - 核心风险：路由误配、请求头透传丢失、跨域放开、文档/监控入口暴露、Nacos 配置漂移、网关错误承担业务鉴权
 
@@ -27,8 +27,8 @@
 
 ## 项目边界
 
-- 网关只负责路由、跨域、限流、Knife4j 文档聚合和请求转发。
-- 新增路由、过滤器、Nacos 配置处理或 Knife4j 聚合能力时，必须优先沿用 `docs/ai-coding/AI_DESIGN_PATTERN_GUIDE.md` 中的 Gateway Route、Predicate、Filter Chain、Adapter、Configuration Properties 等网关适用模式。
+- 网关只负责路由、跨域、限流、OpenAPI 文档转发和请求转发。
+- 新增路由、过滤器、Nacos 配置处理或 OpenAPI 文档转发能力时，必须优先沿用 `docs/ai-coding/AI_DESIGN_PATTERN_GUIDE.md` 中的 Gateway Route、Predicate、Filter Chain、Adapter、Configuration Properties 等网关适用模式。
 - 网关必须原样透传 `Authorization: Bearer <jwt>` 等必要请求头，由 `user` 和业务服务处理认证授权。
 - 网关不实现业务级鉴权、字段级授权、租户隔离、用户身份解析和数据权限。
 - 路由配置以 Nacos 远程 `gateway-spring.yaml` 为准，仓库不保留本地配置副本。

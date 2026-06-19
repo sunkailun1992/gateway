@@ -1,15 +1,16 @@
 # gateway
 
-`gateway` 是基于 Spring Cloud Gateway 4 的入口网关服务，面向 Java 17 / Spring Boot 3.2.4 / Spring Cloud 2023.0.1。当前只承担路由转发、跨域预检、网关限流、Knife4j 网关文档聚合和 Nacos 配置加载职责。
+`gateway` 是基于 Spring Cloud Gateway 的入口网关服务，面向 Java 17 / Spring Boot 4 / Spring Cloud 2025.1.x。当前只承担路由转发、跨域预检、网关限流和 Nacos 配置加载职责。
 
 ## 当前定位
 
 - 服务名：`gateway`
 - 默认端口：`8888`
 - Java 版本：`17`
-- Spring Boot：`3.2.4`
-- Spring Cloud：`2023.0.1`
-- Spring Cloud Alibaba：`2023.0.1.0`
+- Spring Boot：`4.0.4`
+- Spring Cloud：`2025.1.1`
+- Spring Cloud Alibaba：`2025.1.0.0`
+- Nacos Client：`3.2.2`
 - Gradle Wrapper：`8.5`
 - 配置中心：Nacos `<NACOS_ADDR>`
 - Nacos namespace：`<NACOS_NAMESPACE>`
@@ -21,7 +22,6 @@
 - 使用 `lb://service-name` 转发到后端服务。
 - 处理浏览器跨域预检请求。
 - 使用 `RequestRateLimiter` 做网关级限流。
-- 通过 Knife4j Gateway Starter 聚合 OpenAPI3 文档。
 - 从 Nacos 远程 `logging.yml` 读取日志配置。
 
 ## 禁止事项
@@ -40,7 +40,8 @@
 
 ## 当前路由
 
-当前远程 Nacos `gateway-spring.yaml` 维护 `user` 和 `message` 服务路由：
+当前远程 Nacos `gateway-spring.yaml` 维护 `user` 和 `message` 服务路由。AI 服务接入后，
+需要追加 `ai-direct` 和 `ai-prefix` 两条路由：
 
 ```yaml
 - id: user
@@ -55,6 +56,16 @@
     - Path=/message/**
   filters:
     - RewritePath=/message/(?<segment>.*), /${segment}
+- id: ai-direct
+  uri: lb://ai
+  predicates:
+    - Path=/api/ai/**,/api/v1/files/**,/api/files/**,/api/v1/auth/**,/api/auth/**
+- id: ai-prefix
+  uri: lb://ai
+  predicates:
+    - Path=/ai/**
+  filters:
+    - RewritePath=^/ai/(?<segment>.*), /${segment}
 ```
 
 路由含义：
@@ -64,38 +75,20 @@
 - `/user/auth/sessions` 兼容外部 user 前缀，转发到 `user` 服务 `/auth/sessions`。
 - `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于文档聚合。
 - `/message/**` 转发到 `message` 服务对应路径，例如 `/message/v3/api-docs` 转发到 `/v3/api-docs`。
+- `/api/ai/**`、`/api/v1/files/**`、`/api/v1/auth/**` 保持 AI 小程序现有路径不变，直接转发到 `ai` 服务。
+- `/ai/**` 是 AI 服务统一网关前缀，例如 `/ai/v3/api-docs` 转发到 `ai` 服务 `/v3/api-docs`。
 
-## Knife4j 聚合
+## OpenAPI 文档
 
-网关使用官方 `knife4j-gateway-spring-boot-starter` 聚合微服务文档，访问地址：
+第三方文档 UI 聚合能力已移除。后端服务仍保留标准 OpenAPI3 原始文档，网关只负责把服务路径转发到对应服务：
 
 ```text
-http://网关地址/doc.html
+http://网关地址/user/v3/api-docs
+http://网关地址/message/v3/api-docs
+http://网关地址/ai/v3/api-docs
 ```
 
-当前采用手动聚合模式：
-
-```yaml
-knife4j:
-  gateway:
-    enabled: true
-    strategy: manual
-    tags-sorter: order
-    operations-sorter: order
-    routes:
-      - name: 用户服务
-        service-name: user
-        url: /user/v3/api-docs?group=default
-        context-path: /user
-        order: 1
-      - name: 消息服务
-        service-name: message
-        url: /message/v3/api-docs?group=default
-        context-path: /message
-        order: 2
-```
-
-新增微服务时，在 Nacos 远程 `gateway-spring.yaml` 的 `spring.cloud.gateway.routes` 增加业务路由，同时在 `knife4j.gateway.routes` 增加对应文档路由。
+新增微服务时，在 Nacos 远程 `gateway-spring.yaml` 的 `spring.cloud.gateway.routes` 增加业务路由即可，不再维护文档 UI 聚合配置。
 
 ## Nacos 配置
 
@@ -154,7 +147,7 @@ java -jar build/libs/gateway-1.0.0.jar
 
 ```text
 http://192.168.101.141:8888/auth/sessions
-http://192.168.101.141:8888/message/doc.html
+http://192.168.101.141:8888/message/v3/api-docs
 ```
 
 ## AI 编码入口

@@ -6,7 +6,7 @@
 
 - 先识别当前改动是 Java 网关代码、Spring Cloud Gateway 配置、Nacos YAML、脚本还是测试。
 - 优先沿用 Spring Cloud Gateway 官方模型：Route、Predicate、Filter、GlobalFilter、配置属性。
-- 设计模式必须服务网关边界：路由、跨域、请求头透传、限流、Knife4j 聚合、Nacos 配置读写和失败关闭。
+- 设计模式必须服务网关边界：路由、跨域、请求头透传、限流、OpenAPI 文档转发、Nacos 配置读写和失败关闭。
 - 不允许用模式把用户认证、角色权限、租户隔离、数据权限或业务响应解析写进网关。
 - 简单配置优先保留声明式 YAML，不为它硬套 Java 抽象。
 
@@ -37,7 +37,7 @@
 
 ### Adapter
 
-适用 Nacos 配置、Knife4j 聚合、后端服务路由和第三方网关扩展。
+适用 Nacos 配置、OpenAPI 文档转发、后端服务路由和第三方网关扩展。
 
 - 外部配置格式和框架 API 差异封装在适配层。
 - 上层逻辑只关注网关职责，不接触业务服务内部实现。

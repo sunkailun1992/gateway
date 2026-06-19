@@ -3,9 +3,10 @@
 ## 技术基线
 
 - Java 17
-- Spring Boot 3.2.4
-- Spring Cloud 2023.0.1
-- Spring Cloud Alibaba 2023.0.1.0
+- Spring Boot 4.0.4
+- Spring Cloud 2025.1.1
+- Spring Cloud Alibaba 2025.1.0.0
+- Nacos Client 3.2.2
 - Spring Cloud Gateway 4
 - Gradle Wrapper 8.5
 
@@ -18,7 +19,7 @@
 - 通过 `lb://service-name` 转发到后端服务。
 - 处理跨域预检。
 - 使用 `RequestRateLimiter` 做网关级限流。
-- 使用 Knife4j Gateway Starter 聚合 OpenAPI3 文档。
+- 使用 OpenAPI Starter 聚合 OpenAPI3 文档。
 - 从 Nacos 远程 `logging.yml` 读取日志配置。
 
 ## 认证边界
@@ -78,11 +79,11 @@
 - 本项目不再使用 springfox。
 - 后端服务使用 OpenAPI3 `/v3/api-docs`。
 - 网关不再维护自写 `/swagger-resources` Controller。
-- 网关文档聚合使用官方 `knife4j-gateway-spring-boot-starter`。
-- 统一访问入口是 `/doc.html`。
+- 网关不引入文档聚合 starter；只通过普通路由转发各服务 `/v3/api-docs`。
+- 统一访问入口是 `/v3/api-docs`。
 - 当前 `user` 服务文档地址配置为 `/user/v3/api-docs?group=default`。
 - 当前 `message` 服务文档地址配置为 `/message/v3/api-docs?group=default`。
-- 新增微服务时，同步在 Nacos 远程 `gateway-spring.yaml` 维护 `spring.cloud.gateway.routes` 和 `knife4j.gateway.routes`。
+- 新增微服务时，同步在 Nacos 远程 `gateway-spring.yaml` 维护 `spring.cloud.gateway.routes`，保证服务前缀能转发 `/v3/api-docs`。
 
 ## 测试规范
 
