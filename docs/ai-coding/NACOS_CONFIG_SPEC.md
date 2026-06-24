@@ -105,9 +105,9 @@ namespace: <NACOS_NAMESPACE>
 - 服务转发使用 `lb://服务名`。
 - 不在 Nacos 路由里写业务权限规则。
 - 不在 Nacos 路由里写旧 token 鉴权规则。
-- 当前保留 `user` 和 `message` 服务；新增微服务时让 AI 追加对应路由。
-- OpenAPI 原始文档通过普通网关路由转发，不维护单独的文档 UI 聚合配置。
-- 新增微服务时，只需要保证对应前缀能转发 `/v3/api-docs`。
+- 当前保留 `user` 和 `message` 服务；新增微服务时让 AI 同步评估业务路由和 Swagger UI 聚合项。
+- OpenAPI 原始文档通过普通网关路由转发；Swagger UI 下拉列表只维护在 Nacos `gateway-spring.yaml` 的 `springdoc.swagger-ui.urls`。
+- 新增微服务时，必须保证对应前缀能转发 `/v3/api-docs`，需要聚合时还要同步补 `springdoc.swagger-ui.urls` 并验证 `/v3/api-docs/swagger-config`。
 
 ## 当前 user 路由约定
 

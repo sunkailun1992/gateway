@@ -127,7 +127,7 @@ spring:
 curl -sS "http://<NACOS_ADDR>/nacos/v3/client/cs/config?dataId=gateway-spring.yaml&groupName=DEFAULT_GROUP&namespaceId=<NACOS_NAMESPACE>"
 ```
 
-新增微服务时，先读取远程完整内容，再追加对应路由并通过 Nacos 3.x Admin API 整体发布回 Nacos。不要在仓库里新增本地 `gateway-spring.yaml` 副本。
+新增微服务时，先读取远程完整内容，再追加对应业务路由；需要进入 Swagger UI 聚合时，同步追加 `springdoc.swagger-ui.urls`，再通过 Nacos 3.x Admin API 整体发布回 Nacos。不要在仓库里新增本地 `gateway-spring.yaml` 副本。
 
 ## 构建验证
 
