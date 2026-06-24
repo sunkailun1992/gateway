@@ -79,11 +79,12 @@
 - 本项目不再使用 springfox。
 - 后端服务使用 OpenAPI3 `/v3/api-docs`。
 - 网关不再维护自写 `/swagger-resources` Controller。
-- 网关不引入文档聚合 starter；只通过普通路由转发各服务 `/v3/api-docs`。
-- 统一访问入口是 `/v3/api-docs`。
-- 当前 `user` 服务文档地址配置为 `/user/v3/api-docs?group=default`。
-- 当前 `message` 服务文档地址配置为 `/message/v3/api-docs?group=default`。
-- 新增微服务时，同步在 Nacos 远程 `gateway-spring.yaml` 维护 `spring.cloud.gateway.server.webflux.routes`，保证服务前缀能转发 `/v3/api-docs`。
+- 网关使用 Springdoc 官方 Swagger UI 做文档聚合，聚合服务列表只放 Nacos `gateway-spring.yaml`，不放本地配置副本。
+- Swagger UI 统一访问入口是 `/swagger-ui/index.html`。
+- 各服务原始 OpenAPI 入口仍是 `/v3/api-docs`。
+- 当前 `user` 服务文档地址配置为 `/user/v3/api-docs`。
+- 当前 `message` 服务文档地址配置为 `/message/v3/api-docs`。
+- 新增微服务时，同步在 Nacos 远程 `gateway-spring.yaml` 维护 `spring.cloud.gateway.server.webflux.routes` 和 `springdoc.swagger-ui.urls`，保证服务前缀能转发 `/v3/api-docs` 且 Swagger UI 下拉项可用。
 
 ## 测试规范
 

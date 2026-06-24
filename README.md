@@ -36,7 +36,7 @@
 - 不保留本地 `src/main/resources/logback-spring.xml`。
 - 不接入 SLS、Loghub 或阿里云日志 appender。
 - 不复制同级 `../utils` 的工具类源码到本项目。
-- 不恢复自写 `/swagger-resources` 聚合 Controller。
+- 不恢复自写 `/swagger-resources` 聚合 Controller；OpenAPI UI 聚合只使用 Springdoc 官方 Swagger UI，并由 Nacos 配置服务列表。
 
 ## 当前路由
 
@@ -80,7 +80,13 @@
 
 ## OpenAPI 文档
 
-第三方文档 UI 聚合能力已移除。后端服务仍保留标准 OpenAPI3 原始文档，网关只负责把服务路径转发到对应服务：
+网关内置 Springdoc 官方 Swagger UI，聚合入口：
+
+```text
+http://网关地址/swagger-ui/index.html
+```
+
+聚合服务列表放在 Nacos 远程 `gateway-spring.yaml` 的 `springdoc.swagger-ui.urls`，后端服务仍保留标准 OpenAPI3 原始文档，网关负责把服务路径转发到对应服务：
 
 ```text
 http://网关地址/user/v3/api-docs
@@ -88,7 +94,7 @@ http://网关地址/message/v3/api-docs
 http://网关地址/ai/v3/api-docs
 ```
 
-新增微服务时，在 Nacos 远程 `gateway-spring.yaml` 的 `spring.cloud.gateway.server.webflux.routes` 增加业务路由即可，不再维护文档 UI 聚合配置。
+新增微服务时，在 Nacos 远程 `gateway-spring.yaml` 同步增加业务路由和 `springdoc.swagger-ui.urls` 条目，不再维护本地聚合配置。
 
 ## Nacos 配置
 

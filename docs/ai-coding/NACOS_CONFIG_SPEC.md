@@ -173,7 +173,13 @@ AI 服务需要同时保留小程序现有真实路径和统一网关前缀：
 
 ## 当前 OpenAPI 文档转发约定
 
-网关不引入文档聚合 starter，也不维护独立聚合配置。通过普通路由访问各服务 OpenAPI 原始文档：
+网关使用 Springdoc 官方 Swagger UI 做文档聚合；聚合服务列表只维护在 Nacos 远程 `gateway-spring.yaml` 的 `springdoc.swagger-ui.urls`，仓库不保留本地聚合配置副本。Swagger UI 入口：
+
+```text
+http://网关地址/swagger-ui/index.html
+```
+
+各服务 OpenAPI 原始文档仍通过普通路由访问：
 
 ```text
 http://网关地址/user/v3/api-docs
