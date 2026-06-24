@@ -88,7 +88,7 @@ http://网关地址/message/v3/api-docs
 http://网关地址/ai/v3/api-docs
 ```
 
-新增微服务时，在 Nacos 远程 `gateway-spring.yaml` 的 `spring.cloud.gateway.routes` 增加业务路由即可，不再维护文档 UI 聚合配置。
+新增微服务时，在 Nacos 远程 `gateway-spring.yaml` 的 `spring.cloud.gateway.server.webflux.routes` 增加业务路由即可，不再维护文档 UI 聚合配置。
 
 ## Nacos 配置
 
@@ -96,7 +96,7 @@ http://网关地址/ai/v3/api-docs
 
 ```text
 dataId: gateway-spring.yaml
-group: test
+group: DEFAULT_GROUP
 namespace: <NACOS_NAMESPACE>
 ```
 
@@ -118,10 +118,10 @@ spring:
 读取远程配置：
 
 ```bash
-curl -sS "http://<NACOS_ADDR>/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=<NACOS_NAMESPACE>"
+curl -sS "http://<NACOS_ADDR>/nacos/v3/client/cs/config?dataId=gateway-spring.yaml&groupName=DEFAULT_GROUP&namespaceId=<NACOS_NAMESPACE>"
 ```
 
-新增微服务时，先读取远程完整内容，再追加对应路由并整体发布回 Nacos。不要在仓库里新增本地 `gateway-spring.yaml` 副本。
+新增微服务时，先读取远程完整内容，再追加对应路由并通过 Nacos 3.x Admin API 整体发布回 Nacos。不要在仓库里新增本地 `gateway-spring.yaml` 副本。
 
 ## 构建验证
 

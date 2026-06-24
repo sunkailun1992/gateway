@@ -50,7 +50,7 @@
 ## 路由规范
 
 - Nacos 路由配置只保存在远程配置中心，不在仓库保留本地 YAML 副本。
-- 公共限流放到 `spring.cloud.gateway.default-filters`，避免每条路由重复配置。
+- 公共限流放到 `spring.cloud.gateway.server.webflux.default-filters`，避免每条路由重复配置。
 - 当前配置 `user` 和 `message` 服务路由。
 - 新增微服务时，让 AI 读取远程 `gateway-spring.yaml` 后追加一条路由并整体发布回 Nacos。
 - 常规业务服务使用 `/{service}/** + StripPrefix=1`。
@@ -83,7 +83,7 @@
 - 统一访问入口是 `/v3/api-docs`。
 - 当前 `user` 服务文档地址配置为 `/user/v3/api-docs?group=default`。
 - 当前 `message` 服务文档地址配置为 `/message/v3/api-docs?group=default`。
-- 新增微服务时，同步在 Nacos 远程 `gateway-spring.yaml` 维护 `spring.cloud.gateway.routes`，保证服务前缀能转发 `/v3/api-docs`。
+- 新增微服务时，同步在 Nacos 远程 `gateway-spring.yaml` 维护 `spring.cloud.gateway.server.webflux.routes`，保证服务前缀能转发 `/v3/api-docs`。
 
 ## 测试规范
 

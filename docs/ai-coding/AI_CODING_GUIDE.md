@@ -85,16 +85,16 @@ bash scripts/check-secrets.sh
 ## Nacos 读取命令
 
 ```bash
-curl -sS "http://<NACOS_ADDR>/nacos/v1/cs/configs?dataId=gateway-spring.yaml&group=test&tenant=<NACOS_NAMESPACE>"
+curl -sS "http://<NACOS_ADDR>/nacos/v3/client/cs/config?dataId=gateway-spring.yaml&groupName=DEFAULT_GROUP&namespaceId=<NACOS_NAMESPACE>"
 ```
 
 ## Nacos 发布命令
 
 ```bash
-curl -sS -X POST "http://<NACOS_ADDR>/nacos/v1/cs/configs" \
+curl -sS -X POST "http://<NACOS_ADDR>/nacos/v3/admin/cs/config" \
   --data-urlencode "dataId=gateway-spring.yaml" \
-  --data-urlencode "group=test" \
-  --data-urlencode "tenant=<NACOS_NAMESPACE>" \
+  --data-urlencode "groupName=DEFAULT_GROUP" \
+  --data-urlencode "namespaceId=<NACOS_NAMESPACE>" \
   --data-urlencode "type=yaml" \
   --data-urlencode "content=<整理后的完整 YAML 内容>"
 ```

@@ -45,10 +45,10 @@ spring:
       - "optional:nacos:logging.yml?group=DEFAULT_GROUP&refreshEnabled=true"
       # reuse-configuration.yaml：MySQL、Redis、Nacos、Admin、Zipkin 等基础设施公共地址变量。
       - "optional:nacos:reuse-configuration.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
-      # gateway.yaml：网关自身业务配置，例如跨域、限流开关等非 Spring 路由配置。
-      - "optional:nacos:gateway.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
+      # swagger.yaml：Fleet 统一 Swagger/OpenAPI 开关（显示名默认取服务名）。
+      - "optional:nacos:swagger.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
       # gateway-spring.yaml：Spring Cloud Gateway 路由、过滤器和 Redis 限流等 Spring 体系配置。
-      - "optional:nacos:gateway-spring.yaml?group=test&refreshEnabled=true"
+      - "optional:nacos:gateway-spring.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
       # redis.yaml：Redis 客户端配置，供网关限流等能力使用。
       - "optional:nacos:redis.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
       # zipkin.yaml：链路追踪上报地址和采样配置。
