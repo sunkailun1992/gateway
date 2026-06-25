@@ -7,7 +7,8 @@
 ## 1. 机制：只用官方主流方式，不自创
 
 - **统一用 Spring Cloud Alibaba 的 `spring.config.import` 导入远程配置**（SCA 2025.x 官方文档主推的多配置导入方式）。
-  - 写法：`- "optional:nacos:{dataId}?group={group}&refreshEnabled=true"`。
+  - 写法：`- "optional:nacos:{dataId}?refreshEnabled=true"`。
+  - Nacos group 由 `spring.cloud.nacos.config.group` / `custom.nacos-group` 统一控制；只有跨 group 读取的特殊 dataId 才在 import URL 中显式写 `group=...`。
   - **不使用** `bootstrap.yml` + `spring.cloud.nacos.config.shared-configs/extension-configs` 经典写法，全 fleet 不混用两套机制。
 - **dataId 命名**：
   - 服务自身配置：`{spring.application.name}.yaml`（业务）与 `{spring.application.name}-spring.yaml`（Spring 框架/环境）。
@@ -25,7 +26,7 @@
 | **L3 服务业务** | `{svc}.yaml` | DEFAULT_GROUP | 本服务业务键 + 本服务**私有**的 `@ConfigurationProperties` 树（如 `ai` 的 `wechat`、`aliyun.oss` bucket） |
 | **L4 服务框架/环境** | `{svc}-spring.yaml` | DEFAULT_GROUP | datasource、profile、discovery、`spring.ai` model、gateway 路由等 Spring/环境配置 |
 
-> 当前 `gateway-spring.yaml` 已归到 `DEFAULT_GROUP`，本地 `spring.config.import` 必须与 Nacos 中的 group 保持一致。
+> 当前 `gateway-spring.yaml` 已归到 `DEFAULT_GROUP`，本地全局 `spring.cloud.nacos.config.group` 必须与 Nacos 中的 group 保持一致，import URL 不重复写 `group=DEFAULT_GROUP`。
 
 ## 3. 各 dataId 内容边界
 

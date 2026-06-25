@@ -41,18 +41,18 @@ spring:
   config:
     import:
       # logging.yml：日志级别、日志路径等通用日志配置。
-      - "optional:nacos:logging.yml?group=DEFAULT_GROUP&refreshEnabled=true"
+      - "optional:nacos:logging.yml?refreshEnabled=true"
       # reuse-configuration.yaml：MySQL、Redis、Nacos、Admin、Zipkin 等基础设施公共地址变量。
-      - "optional:nacos:reuse-configuration.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
+      - "optional:nacos:reuse-configuration.yaml?refreshEnabled=true"
       # traffic-governance.yaml：网关灰度请求头标准化、版本/泳道默认值和实例元数据。
-      - "optional:nacos:traffic-governance.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
+      - "optional:nacos:traffic-governance.yaml?refreshEnabled=true"
       # swagger.yaml：Fleet 统一 Swagger/OpenAPI 开关（显示名默认取服务名）。
-      - "optional:nacos:swagger.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
+      - "optional:nacos:swagger.yaml?refreshEnabled=true"
       # gateway-spring.yaml：Spring Cloud Gateway 路由、过滤器和 Redis 限流等 Spring 体系配置。
-      - "optional:nacos:gateway-spring.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
+      - "optional:nacos:gateway-spring.yaml?refreshEnabled=true"
       # redis.yaml：Redis 客户端配置，供网关限流等能力使用。
-      - "optional:nacos:redis.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
+      - "optional:nacos:redis.yaml?refreshEnabled=true"
       # zipkin.yaml：链路追踪上报地址和采样配置。
-      - "optional:nacos:zipkin.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
+      - "optional:nacos:zipkin.yaml?refreshEnabled=true"
       # admin.yaml：Spring Boot Admin 客户端注册配置。
-      - "optional:nacos:admin.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
+      - "optional:nacos:admin.yaml?refreshEnabled=true"
