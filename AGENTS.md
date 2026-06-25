@@ -6,7 +6,7 @@
 
 - 项目名称：`gateway`
 - 项目类型：Spring Cloud Gateway 网关
-- 技术栈：Java 17、Spring Boot、Spring Cloud Gateway、OpenAPI、Nacos、Gradle
+- 技术栈：Java 17、Spring Boot、Spring Cloud Gateway、OpenAPI、Nacos、Gradle、`com:rpc-api`
 - 同级服务：`../user`、`../message` 和其它后端服务
 - 核心风险：路由误配、请求头透传丢失、跨域放开、文档/监控入口暴露、Nacos 配置漂移、网关错误承担业务鉴权
 
@@ -24,9 +24,10 @@
 8. `docs/ai-coding/BRANCHING_SPEC.md`：确认分支命名、短分支生命周期、release/hotfix、tag 和清理规则。
 9. `docs/ai-coding/ENVIRONMENT_CONFIG_SPEC.md`：确认环境、Nacos namespace、Java profile 和前端/小程序边界。
 10. `docs/ai-coding/VERSIONING_SPEC.md`：确认 `group = 'com'`、`version = '1.0.0'`、补丁递增和消费者同步规则。
-11. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
-12. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
-13. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
+11. `docs/ai-coding/RPC_API_CODING_SPEC.md`：确认网关与 Dubbo RPC 契约、`../rpc-api` 和 `../utils` 的边界。
+12. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
+13. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
+14. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
 
 ## 项目边界
 
@@ -34,6 +35,7 @@
 - 新增路由、过滤器、Nacos 配置处理或 OpenAPI 文档转发能力时，必须优先沿用 `docs/ai-coding/AI_DESIGN_PATTERN_GUIDE.md` 中的 Gateway Route、Predicate、Filter Chain、Adapter、Configuration Properties 等网关适用模式。
 - 网关必须原样透传 `Authorization: Bearer <jwt>` 等必要请求头，由 `user` 和业务服务处理认证授权。
 - 网关不实现业务级鉴权、字段级授权、租户隔离、用户身份解析和数据权限。
+- 网关不实现 Dubbo provider/consumer 业务编排；跨服务 RPC 契约统一在同级 `../rpc-api`，网关只在需要外部 HTTP 暴露时维护路由。
 - 路由配置以 Nacos 远程 `gateway-spring.yaml` 为准，仓库不保留本地配置副本。
 - 新增可通过网关访问的 Java 微服务或 OpenAPI 文档入口时，必须同时评估 Nacos 远程 `gateway-spring.yaml` 的业务路由和 `springdoc.swagger-ui.urls` 聚合项；服务未能通过对应网关文档路径验证前，不加入 Swagger UI 下拉。
 

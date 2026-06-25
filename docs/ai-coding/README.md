@@ -12,11 +12,12 @@
 6. 再读 `BRANCHING_SPEC.md`，确认分支命名、短分支生命周期、release/hotfix、tag 和清理规则。
 7. 再读 `ENVIRONMENT_CONFIG_SPEC.md`，确认环境、Nacos namespace、Java profile 和前端/小程序边界。
 8. 再读 `VERSIONING_SPEC.md`，确认 `group = 'com'`、`version = '1.0.0'`、补丁递增和公共包消费者同步规则。
-9. 再读 `GATEWAY_CODING_SPEC.md`，确认网关服务边界、技术基线、认证转发和测试要求。
-10. 涉及路由暴露、请求头透传、跨域、日志、代理转发、监控入口或文档入口时，读 `SECURITY_CODING_SPEC.md`。
-11. 修改 Nacos 配置时读 `NACOS_CONFIG_SPEC.md`，直接读取和更新 Nacos 远程 `gateway-spring.yaml`。
-12. 涉及后端认证、统一响应、JWT、权限、多租户等公共能力时，对照同级 `user` 和 `utils` 项目，不在网关重复实现。
-13. 修改完成后执行 `./gradlew clean test bootJar --no-daemon`。
+9. 再读 `RPC_API_CODING_SPEC.md`，确认网关与 Dubbo RPC 契约、`../rpc-api` 和 `../utils` 的边界。
+10. 再读 `GATEWAY_CODING_SPEC.md`，确认网关服务边界、技术基线、认证转发和测试要求。
+11. 涉及路由暴露、请求头透传、跨域、日志、代理转发、监控入口或文档入口时，读 `SECURITY_CODING_SPEC.md`。
+12. 修改 Nacos 配置时读 `NACOS_CONFIG_SPEC.md`，直接读取和更新 Nacos 远程 `gateway-spring.yaml`。
+13. 涉及后端认证、统一响应、JWT、权限、多租户等公共能力时，对照同级 `user` 和 `utils` 项目，不在网关重复实现。
+14. 修改完成后执行 `./gradlew clean test bootJar --no-daemon`。
 
 ## 必读结论
 
@@ -33,6 +34,7 @@
 - 分支命名、短分支生命周期、release/hotfix、tag 和分支清理按 `BRANCHING_SPEC.md` 处理。
 - 环境、Nacos namespace、Java profile 和前端/小程序边界按 `ENVIRONMENT_CONFIG_SPEC.md` 处理。
 - 项目版本、公共包依赖和后端 Java 新项目基础坐标按 `VERSIONING_SPEC.md` 处理；纯 AI 规范或 README 改动不提升制品版本。
+- Dubbo RPC 契约统一维护在同级 `../rpc-api`；网关不实现 provider/consumer 业务编排，只负责 HTTP 路由和请求头透传。
 - AI 新增或修改 README、AI 规范、配置、脚本、测试、示例和代码时，禁止写入个人电脑绝对路径、本机下载目录、本机 JDK 路径或本机仓库完整路径；需要表达目录关系时使用相对路径、环境变量或 `<PLACEHOLDER>` 占位符。
 - AI 开始修改网关或配置前必须按 `AI_AUTOMATION_WORKFLOW.md` 先整理需求说明、验收标准和开发手册；小改动可以简化输出，但检查项不能跳过。
 - AI 完成网关或配置修改后必须按 `AI_ENGINEERING_GUARDRAILS.md` 做风险分级、Definition of Done、测试证据、安全检查、风险和回滚说明。
@@ -60,6 +62,7 @@ docs/
     BRANCHING_SPEC.md
     ENVIRONMENT_CONFIG_SPEC.md
     VERSIONING_SPEC.md
+    RPC_API_CODING_SPEC.md
     GATEWAY_CODING_SPEC.md
     SECURITY_CODING_SPEC.md
     NACOS_CONFIG_SPEC.md

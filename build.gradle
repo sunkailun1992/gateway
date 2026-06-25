@@ -10,7 +10,7 @@ plugins {
  * 项目基础信息
  */
 group = 'com.gateway'
-version = '1.0.4'
+version = '1.0.5'
 description = 'gateway'
 
 ext {
@@ -19,6 +19,7 @@ ext {
     springCloudAlibabaVersion = '2025.1.0.0'
     nacosClientVersion = '3.2.2'
     springdocVersion = '3.0.3'
+    rpcApiVersion = '1.0.0'
 }
 /**
  * 编码规则
@@ -93,6 +94,7 @@ configurations.configureEach {
  * 引入的jar
  */
 dependencies {
+    implementation "com:rpc-api:${rpcApiVersion}"
     implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery'
     implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config'
     implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
