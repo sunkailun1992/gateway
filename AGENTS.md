@@ -25,9 +25,10 @@
 9. `docs/ai-coding/ENVIRONMENT_CONFIG_SPEC.md`：确认环境、Nacos namespace、Java profile 和前端/小程序边界。
 10. `docs/ai-coding/VERSIONING_SPEC.md`：确认 `group = 'com'`、`version = '1.0.0'`、补丁递增和消费者同步规则。
 11. `docs/ai-coding/RPC_API_CODING_SPEC.md`：确认网关与 Dubbo RPC 契约、`../rpc-api` 和 `../utils` 的边界。
-12. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
-13. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
-14. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
+12. `docs/ai-coding/TESTING_SPEC.md`：确认网关 SpringBootTest、WebTestClient、stub backend 和 E2E 测试边界。
+13. `docs/ai-coding/GATEWAY_CODING_SPEC.md`：确认网关服务边界、技术基线、认证转发和测试要求。
+14. `docs/ai-coding/NACOS_CONFIG_SPEC.md`：修改远程配置前必须阅读。
+15. `docs/ai-coding/SECURITY_CODING_SPEC.md`：涉及路由暴露、请求头、跨域、日志、代理转发、监控入口或文档入口时必须阅读。
 
 ## 项目边界
 
@@ -45,6 +46,7 @@
 - 新增或修改功能前，必须按 `AI_AUTOMATION_WORKFLOW.md` 整理需求说明、验收标准和开发手册。
 - 完成后必须按 `docs/ai-coding/AI_ENGINEERING_GUARDRAILS.md` 做风险分级、Definition of Done、测试证据、安全检查、风险和回滚说明。
 - 修改 Nacos 配置时，必须读回权威配置源再报告结果，不能只根据本地文件或发布命令判断成功。
+- 测试分层按 `docs/ai-coding/TESTING_SPEC.md` 执行；路由和 header 透传必须用 SpringBootTest + WebTestClient 验证真实网关链路。
 
 ## 多智能体协作规则
 
