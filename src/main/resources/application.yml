@@ -45,6 +45,8 @@ spring:
       - "optional:nacos:logging.yml?group=DEFAULT_GROUP&refreshEnabled=true"
       # reuse-configuration.yaml：MySQL、Redis、Nacos、Admin、Zipkin 等基础设施公共地址变量。
       - "optional:nacos:reuse-configuration.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
+      # traffic-governance.yaml：网关灰度请求头标准化、版本/泳道默认值和实例元数据。
+      - "optional:nacos:traffic-governance.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
       # swagger.yaml：Fleet 统一 Swagger/OpenAPI 开关（显示名默认取服务名）。
       - "optional:nacos:swagger.yaml?group=DEFAULT_GROUP&refreshEnabled=true"
       # gateway-spring.yaml：Spring Cloud Gateway 路由、过滤器和 Redis 限流等 Spring 体系配置。
