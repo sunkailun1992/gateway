@@ -10,7 +10,7 @@ plugins {
  * 项目基础信息
  */
 group = 'com.gateway'
-version = '1.0.0'
+version = '1.0.1'
 description = 'gateway'
 
 ext {
