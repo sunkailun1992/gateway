@@ -37,6 +37,7 @@
 - 网关必须原样透传 `Authorization: Bearer <jwt>` 等必要请求头，由 `user` 和业务服务处理认证授权。
 - 网关不实现业务级鉴权、字段级授权、租户隔离、用户身份解析和数据权限。
 - 网关不实现 Dubbo provider/consumer 业务编排；跨服务 RPC 契约统一在同级 `../rpc-api`，网关只在需要外部 HTTP 暴露时维护路由。
+- 网关不维护业务库 DDL；如果后端服务因 Seata AT 提示 `undo_log table not exist` 启动失败，按业务服务目标库手动执行 `../utils/src/main/resources/db/common-infra-schema.sql`，不要在网关仓库新增 SQL 副本。
 - 路由配置以 Nacos 远程 `gateway-spring.yaml` 为准，仓库不保留本地配置副本。
 - 新增可通过网关访问的 Java 微服务或 OpenAPI 文档入口时，必须同时评估 Nacos 远程 `gateway-spring.yaml` 的业务路由和 `springdoc.swagger-ui.urls` 聚合项；服务未能通过对应网关文档路径验证前，不加入 Swagger UI 下拉。
 
