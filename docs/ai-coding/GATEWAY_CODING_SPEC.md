@@ -51,13 +51,15 @@
 
 - Nacos 路由配置只保存在远程配置中心，不在仓库保留本地 YAML 副本。
 - 公共限流放到 `spring.cloud.gateway.server.webflux.default-filters`，避免每条路由重复配置。
-- 当前配置 `user` 和 `message` 服务路由。
+- 当前配置 `user`、`message`、`ai` 和 `report` 服务路由。
 - 新增微服务时，让 AI 读取远程 `gateway-spring.yaml` 后追加一条路由并整体发布回 Nacos。
-- 常规业务服务使用 `/{service}/** + StripPrefix=1`。
+- 常规业务服务使用 `/{service}/**` 网关前缀，并按当前远端配置选择稳定的路径改写方式；现有 `message` 和 `report` 使用 `RewritePath`。
 - `user` 服务同时支持旧 `/user/**` 前缀和新 `/auth/**` 直达。
 - 旧 `/user/**` 使用 `RewritePath=/user/(?<segment>.*), /${segment}`，保证 `/user/auth/sessions` 仍可转到后端 `/auth/sessions`。
 - 新 `/auth/**` 不剥离前缀，保证 `/auth/sessions` 直达后端 `/auth/sessions`。
 - `message` 服务使用 `/message/**` 前缀，并通过 `RewritePath=/message/(?<segment>.*), /${segment}` 转发到后端真实路径。
+- `ai` 服务当前保留 `/api/**` 直达路由，不改写路径。
+- `report` 服务使用 `/report/**` 前缀，并通过 `RewritePath=/report/(?<segment>.*), /${segment}` 转发到后端真实路径。
 
 ## 日志规范
 
@@ -69,7 +71,7 @@
 ## 路径与本机环境规范
 
 - README、AI 规范、YAML、properties、脚本、测试、示例和 Java 代码中不得写入个人电脑绝对路径、下载目录、IDE 路径、JDK 安装路径或本机仓库完整路径。
-- 需要描述同级仓库时，使用 `../user`、`../message`、`../utils` 这类相对路径，不使用开发者机器上的完整目录。
+- 需要描述同级仓库时，使用 `../user`、`../message`、`../report`、`../utils` 这类相对路径，不使用开发者机器上的完整目录。
 - 需要描述可变安装目录、日志目录、临时目录或 JDK 路径时，使用环境变量、Nacos 配置、`~` 用户目录、`${user.home}`、`${java.io.tmpdir}` 或 `<PLACEHOLDER>` 占位符。
 - 网关路由和基础设施地址优先使用 Nacos 公共配置变量；本地私有路径不得提交到仓库。
 - 提交前必须使用 `rg` 搜索本机用户名、用户目录、仓库根目录和系统盘路径关键字，检查是否残留本机路径。
@@ -84,6 +86,7 @@
 - 各服务原始 OpenAPI 入口仍是 `/v3/api-docs`。
 - 当前 `user` 服务文档地址配置为 `/user/v3/api-docs`。
 - 当前 `message` 服务文档地址配置为 `/message/v3/api-docs`。
+- 当前 `report` 服务文档地址配置为 `/report/v3/api-docs`。
 - 新增微服务时，同步在 Nacos 远程 `gateway-spring.yaml` 维护 `spring.cloud.gateway.server.webflux.routes` 和 `springdoc.swagger-ui.urls`，保证服务前缀能转发 `/v3/api-docs` 且 Swagger UI 下拉项可用。
 
 ## 测试规范

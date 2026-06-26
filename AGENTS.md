@@ -7,7 +7,7 @@
 - 项目名称：`gateway`
 - 项目类型：Spring Cloud Gateway 网关
 - 技术栈：Java 17、Spring Boot、Spring Cloud Gateway、OpenAPI、Nacos、Gradle、`com:rpc-api`
-- 同级服务：`../user`、`../message` 和其它后端服务
+- 同级服务：`../user`、`../message`、`../ai`、`../report` 和其它后端服务
 - 核心风险：路由误配、请求头透传丢失、跨域放开、文档/监控入口暴露、Nacos 配置漂移、网关错误承担业务鉴权
 
 ## 修改前阅读顺序

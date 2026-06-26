@@ -28,7 +28,7 @@
 - 安全规则独立维护在 `SECURITY_CODING_SPEC.md`，新增路由或改网关配置时必须同步检查接口鉴权透传、数据脱敏、水平越权路径绕过、文件遍历、退出清理 token 边界、XSS 跨站脚本、SQL 注入参数透传、文件上传校验、CSRF、SSRF、限流资源消耗、安全响应头、供应链、配置安全、异常失败关闭、安全日志告警、开放重定向和运维入口访问控制。
 - 新后端认证使用 `Authorization: Bearer <jwt>`，网关必须原样透传请求头，由 `user` 和业务服务的 Spring Security 处理。
 - 路由配置只保存在 Nacos；仓库不保留 `gateway-spring.yaml` 本地副本。
-- 当前远程配置已有 `user` 和 `message` 项目路由；新增微服务时让 AI 在 Nacos 远程配置里追加业务路由，需要文档聚合时同步追加 `springdoc.swagger-ui.urls`。
+- 当前远程配置已有 `user`、`message`、`ai` 和 `report` 项目路由；新增微服务时让 AI 在 Nacos 远程配置里追加业务路由，需要文档聚合时同步追加 `springdoc.swagger-ui.urls`。
 - Spring Cloud Gateway 4 已不使用 Ribbon；不要恢复旧 `RewriteRoundRobinRule`。
 - Springfox 和自写 `/swagger-resources` 聚合已移除；OpenAPI 聚合走 Springdoc 官方 Swagger UI，入口是 `/swagger-ui/index.html`，原始文档仍走各服务 `/v3/api-docs`。
 - 日志配置来自 Nacos 远程 `logging.yml`，仓库不保留本地 `logback-spring.xml`。

@@ -40,8 +40,7 @@
 
 ## 当前路由
 
-当前远程 Nacos `gateway-spring.yaml` 维护 `user` 和 `message` 服务路由。AI 服务接入后，
-需要追加 `ai-direct` 和 `ai-prefix` 两条路由：
+当前远程 Nacos `gateway-spring.yaml` 维护 `user`、`message`、`ai` 和 `report` 服务路由：
 
 ```yaml
 - id: user
@@ -56,16 +55,16 @@
     - Path=/message/**
   filters:
     - RewritePath=/message/(?<segment>.*), /${segment}
-- id: ai-direct
+- id: ai
   uri: lb://ai
   predicates:
-    - Path=/api/ai/**,/api/v1/files/**,/api/files/**,/api/v1/auth/**,/api/auth/**
-- id: ai-prefix
-  uri: lb://ai
+    - Path=/api/**
+- id: report
+  uri: lb://report
   predicates:
-    - Path=/ai/**
+    - Path=/report/**
   filters:
-    - RewritePath=^/ai/(?<segment>.*), /${segment}
+    - RewritePath=/report/(?<segment>.*), /${segment}
 ```
 
 路由含义：
@@ -75,8 +74,8 @@
 - `/user/auth/sessions` 兼容外部 user 前缀，转发到 `user` 服务 `/auth/sessions`。
 - `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于文档聚合。
 - `/message/**` 转发到 `message` 服务对应路径，例如 `/message/v3/api-docs` 转发到 `/v3/api-docs`。
-- `/api/ai/**`、`/api/v1/files/**`、`/api/v1/auth/**` 保持 AI 小程序现有路径不变，直接转发到 `ai` 服务。
-- `/ai/**` 是 AI 服务统一网关前缀，例如 `/ai/v3/api-docs` 转发到 `ai` 服务 `/v3/api-docs`。
+- `/api/**` 保持 AI 小程序现有路径不变，直接转发到 `ai` 服务。
+- `/report/**` 转发到 `report` 服务对应路径，例如 `/report/v3/api-docs` 转发到 `/v3/api-docs`。
 
 ## OpenAPI 文档
 
@@ -91,7 +90,7 @@ http://网关地址/swagger-ui/index.html
 ```text
 http://网关地址/user/v3/api-docs
 http://网关地址/message/v3/api-docs
-http://网关地址/ai/v3/api-docs
+http://网关地址/report/v3/api-docs
 ```
 
 新增微服务时，在 Nacos 远程 `gateway-spring.yaml` 同步增加业务路由和 `springdoc.swagger-ui.urls` 条目，不再维护本地聚合配置。
@@ -154,6 +153,7 @@ java -jar build/libs/gateway-1.0.0.jar
 ```text
 http://192.168.101.141:8888/auth/sessions
 http://192.168.101.141:8888/message/v3/api-docs
+http://192.168.101.141:8888/report/v3/api-docs
 ```
 
 ## AI 编码入口

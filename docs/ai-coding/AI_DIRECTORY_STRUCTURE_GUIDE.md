@@ -46,7 +46,7 @@ src/main/java/com/kellen
 - 新增测试必须放 `src/test/java/com/kellen`，测试资源放 `src/test/resources`。
 - 当前按网关技术职责组织包（config/filter/predicate 等，package-by-layer）；当路由、限流、跨域、文档聚合等网关能力在多个目录中持续膨胀，且改动总是跨多个目录联动时，才评估按网关能力特性分包（package-by-feature）。演进必须有真实维护痛点，不为小规模代码强行切换，并同步 Spring 组件扫描、网关配置、测试和文档。
 - AI 规范统一放 `docs/ai-coding/`；根目录不再新增 `AI_*.md`、`*_SPEC.md` 或临时分析文档。
-- 当前仓库不得嵌套 `user`、`message`、`utils`、`admin-web`、`ai` 等同级项目副本；跨项目修改必须切换到真实同级仓库。
+- 当前仓库不得嵌套 `user`、`message`、`report`、`utils`、`admin-web`、`ai` 等同级项目副本；跨项目修改必须切换到真实同级仓库。
 - 构建产物、IDE 文件、本机模块文件和系统文件不得提交，例如 `build/`、`.gradle/`、`.idea/`、`*.iml`、`.DS_Store`。
 
 ## 变更流程
