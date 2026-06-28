@@ -19,7 +19,7 @@ ext {
     springCloudAlibabaVersion = '2025.1.0.0'
     nacosClientVersion = '3.2.2'
     springdocVersion = '3.0.3'
-    rpcApiVersion = '1.0.0'
+    rpcApiVersion = '1.0.1'
 }
 /**
  * 编码规则

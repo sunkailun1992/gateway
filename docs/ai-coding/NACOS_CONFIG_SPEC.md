@@ -27,6 +27,7 @@
 | **L4 服务框架/环境** | `{svc}-spring.yaml` | DEFAULT_GROUP | datasource、profile、discovery、`spring.ai` model、gateway 路由等 Spring/环境配置 |
 
 > 当前 `gateway-spring.yaml` 已归到 `DEFAULT_GROUP`，本地全局 `spring.cloud.nacos.config.group` 必须与 Nacos 中的 group 保持一致，import URL 不重复写 `group=DEFAULT_GROUP`。
+> Spring Cloud HTTP 服务发现继续使用 `DEFAULT_GROUP`；Dubbo RPC 注册单独使用 `DUBBO_GROUP`（`reuse-configuration.yaml` 的 `custom.dubbo-group` + `dubbo.yaml` 的 `dubbo.registry.group`）。禁止把 Dubbo 应用级实例注册进 `DEFAULT_GROUP`，否则网关 `lb://{svc}` 可能抽到 `tri` RPC 端口。
 
 ## 3. 各 dataId 内容边界
 
