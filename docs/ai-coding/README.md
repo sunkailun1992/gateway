@@ -1,5 +1,7 @@
 # Gateway AI 编码规范入口
 
+涉及 Nacos 配置、模板、引导或渲染/发布工具时，必须同时阅读 [Nacos 配置注释与归类规范](NACOS_COMMENT_SPEC.md)。
+
 本目录是 `gateway` 项目的 AI 编码入口。AI 修改网关代码或 Nacos 配置前，先读本目录，再读取 Nacos 远程配置确认当前路由。
 
 ## 快速阅读

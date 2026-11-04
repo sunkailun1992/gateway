@@ -1,215 +1,77 @@
-# Nacos 配置中心规范（Fleet 统一）
+# Nacos 配置中心规范（GitHub 个人项目）
 
-> GitHub 个人环境现行覆盖：三个 profile 当前均使用个人 `github-dev`，统一由 `GITHUB_NACOS_DEV_NAMESPACE` 覆盖；Git 分支不切换环境；只使用 `GITHUB_NACOS_*` 引导变量，不回落公司 dev。通用模板与私有 CAS 发布见同级 `utils/ops/github-dev/README.md`。本轮不复制公司业务 dataId。
+> 配置注释必须遵循 [Nacos 注释与归类规范](NACOS_COMMENT_SPEC.md)，覆盖可提交模板、私有渲染产物、引导配置和发布工具。
 
-> 本文件前半是**全 fleet 统一**的 Nacos 配置中心分层与拆分规范（各服务仓库内容一致）；后半「网关专属」是 `gateway` 服务的路由与 `gateway-spring.yaml` 约定。
-> 本地环境入口、Spring profile 与 Nacos namespace 的映射详见 `ENVIRONMENT_CONFIG_SPEC.md`。
-> Fleet 成员：`ai`、`ai-agent`、`user`、`message`、`report`、`gateway`（公共能力由 `utils` 提供）。
+## 当前环境与配置来源
 
-## 1. 机制：只用官方主流方式，不自创
+个人服务为 `gateway`、`user`、`message`、`report`、`ai`、`ai-agent`、`ai-memory`、`rag`、`mcp`；`utils` 提供公共配置绑定与唯一模板目录，本身不作为 Nacos 服务启动。
 
-- **统一用 Spring Cloud Alibaba 的 `spring.config.import` 导入远程配置**（SCA 2025.x 官方文档主推的多配置导入方式）。
-  - 写法：`- "optional:nacos:{dataId}?refreshEnabled=true"`。
-  - 当前 fleet 的 import URL 不重复写 `group=DEFAULT_GROUP`；默认 group 由同一 profile 文件中的 `spring.cloud.nacos.config.group` / `custom.nacos-group` 控制。只有跨 group 特例才在单条 import URL 显式写 `group`。`spring.config.import` 必须与对应 profile 的 Nacos 地址同文件，避免 ConfigData 解析阶段拿不到 `custom.nacos-ip`。
-  - **不使用** `bootstrap.yml` + `spring.cloud.nacos.config.shared-configs/extension-configs` 经典写法，全 fleet 不混用两套机制。
-- **dataId 命名**：
-  - 服务自身配置：`{spring.application.name}.yaml`（业务）与 `{spring.application.name}-spring.yaml`（Spring 框架/环境）。
-  - 共享 / 横切模块：**显式命名 dataId**（如 `redis.yaml`、`qdrant.yaml`、`aliyun.yaml`、`a2a.yaml`）——显式命名 import 就是官方示例写法，合规。
-- **一个 `@ConfigurationProperties` 前缀树只存在于唯一一个 dataId**。禁止把同一前缀树拆到多个 dataId、靠加载顺序“合并”——这是非主流技巧，全 fleet 禁止。
-- **共享的“值”用标准 `${占位符}` 引用**（Spring 原生占位符）。禁止裸 IP / 裸密钥散落到各服务文件；基础设施地址一律引用 `reuse-configuration.yaml` 的 `custom.*`。
+`dev`、`test`、`prod` 三个 profile 当前均连接个人 `github-dev / DEFAULT_GROUP`，统一使用 `GITHUB_NACOS_DEV_*` 引导变量，Git 分支不切换环境，也不回落美联 dev。具体地址、控制台和 SDK 端口的区别见 [个人环境说明](../../../utils/ops/github-dev/README.md)。Yudao 与美联实际配置不在个人目录维护范围。
 
-## 2. 分层：每个 dataId 归属唯一、可解释
+当前 37 个 dataId 的职责和消费者清单见 [配置分类索引](../../../utils/ops/github-dev/nacos/README.md)。它来自九个服务的实际 `application-dev.yml` import，不能继续沿用早期五服务清单或公司 `aliyun.yaml` 配置清单。远端生效值仍以目标 Nacos 的当前读回为准，仓库只保存默认值和占位符。
 
-| 层 | dataId | group | 内容 |
-|---|---|---|---|
-| **L0 本地引导** | 各仓库 `src/main/resources/application.yml` + `application-dev.yml` / `application-test.yml` / `application-prod.yml` | — | 连 Nacos 前必需的最小集：`application.yml` 放 `server.port`、`spring.application.name`、`spring.profiles.active`、`custom.nacos-group`；`application-*.yml` 放对应环境的 Nacos `server-addr`、`namespace`、Nacos config/discovery 绑定逻辑和本环境 `spring.config.import`。**不放任何业务/密钥**。6 服务骨架只差 `port` + `name` + 各自 profile import 列表 |
-| **L1 共享基础设施** | `logging.yml` `reuse-configuration.yaml` `traffic-governance.yaml` `redis.yaml` `rabbitmq.yaml` `elasticsearch.yaml` `qdrant.yaml` `seata.yaml` `zipkin.yaml` `admin.yaml` `dubbo.yaml` `xxl-job.yaml` `mybatis-plus.yaml` `security-auth.yaml` `swagger.yaml` | DEFAULT_GROUP | fleet 公共基础设施 / 框架配置 |
-| **L2 共享横切域** | `aliyun.yaml`（aliyun 账号+OSS+SMS+钉钉+直播+email）、`a2a.yaml`（A2A 共享值） | DEFAULT_GROUP | 多服务共享的第三方/领域配置 |
-| **L3 服务业务** | `{svc}.yaml` | DEFAULT_GROUP | 本服务业务键 + 本服务**私有**的 `@ConfigurationProperties` 树（如 `ai` 的 `wechat`、`aliyun.oss` bucket） |
-| **L4 服务框架/环境** | `{svc}-spring.yaml` | DEFAULT_GROUP | datasource、profile、discovery、`spring.ai` model、gateway 路由等 Spring/环境配置 |
+## 1. 引导与导入机制
 
-> 当前 `gateway-spring.yaml` 已归到 `DEFAULT_GROUP`，本地全局 `spring.cloud.nacos.config.group` 必须与 Nacos 中的 group 保持一致，import URL 不重复写 `group=DEFAULT_GROUP`。
-> Spring Cloud HTTP 服务发现继续使用 `DEFAULT_GROUP`；Dubbo RPC 注册单独使用 `DUBBO_GROUP`（`reuse-configuration.yaml` 的 `custom.dubbo-group` + `dubbo.yaml` 的 `dubbo.registry.group`）。禁止把 Dubbo 应用级实例注册进 `DEFAULT_GROUP`，否则网关 `lb://{svc}` 可能抽到 `tri` RPC 端口。
+- 使用 Spring Cloud Alibaba `spring.config.import`，不混用 `bootstrap.yml` 与 `shared-configs/extension-configs`。
+- `application.yml` 维护服务名、端口、profile 入口和默认 group；`application-dev.yml`、`application-test.yml`、`application-prod.yml` 维护 Nacos 接入与 import。地址必须与对应 import 位于同一 profile 文件，不能依赖尚未加载的远端配置提供连接信息。
+- 当前 import 同时存在 `optional:nacos:` 与必需的 `nacos:` 项。是否 optional、`refreshEnabled`、group 和顺序均属于运行契约，注释整理不得改变。
+- 默认 group 由 `custom.nacos-group` 与 `spring.cloud.nacos.config.group` 控制，跨 group 特例才在 import URL 显式声明。
+- 共享值通过 Spring `${custom.*}` 引用；`GITHUB_*` 是私有渲染/本地引导输入。不要把两类占位符相互替换，不将真实凭据复制进模板。
 
-## 3. 各 dataId 内容边界
+## 2. 职责分类
 
-- **`reuse-configuration.yaml`**：**只放 `custom.*` 公共变量**（基础设施地址 + Nacos 凭据变量，如 `custom.infra-*`、`custom.nacos-username/password/context-path`）。**不放任何业务块或第三方密钥块**。
-- **本地 `application-dev/test/prod.yml`**：定义 `custom.nacos-ip`、`custom.namespace`、Nacos config/discovery 绑定逻辑和本环境 `spring.config.import`；GitHub dev/test/prod 使用各自独立 namespace，后期环境拆开时只改对应 profile 文件或部署环境变量。
-- **`traffic-governance.yaml`**：统一放灰度发布请求头名、默认 `X-Release-Version`、默认 `X-Traffic-Lane`、实例 `release.version`/`traffic.lane`/`canary.tag`/`traffic.weight` 元数据，以及 Nacos Discovery 元数据。**权重是治理配置和实例元数据，不由公网前端随意决定**；公网前端默认只带发布版本和泳道，灰度 tag/权重必须由受控配置显式开启。
-- **`logging/traffic-governance/redis/rabbitmq/elasticsearch/seata/zipkin/admin/dubbo/xxl-job/mybatis-plus/security-auth`**：各对应一组 utils 自动配置 / Spring 体系前缀，整组留在各自 dataId。
-- **`qdrant.yaml`**：Qdrant 向量数据库连接配置，当前由 `ai` profile 导入作为备用向量库入口；保留连接能力不等于默认启用本地 RAG 或 Spring AI VectorStore 执行链。
-- **`swagger.yaml`**：`swagger.enable` + `swagger.name=${spring.application.name}`；要自定义显示名的服务在自己的 `{svc}.yaml` 覆盖一行。
-- **`aliyun.yaml`**：整棵 `aliyun`（account key + `oss` + `sms` + `dingding` + `liveStreaming`）+ 顶层 `email`。绑定方为 utils 的 `CommonAliyunProperties(prefix="aliyun")`。**凡使用任一 aliyun 能力、或可能触发 utils `@RequestRequired` 钉钉告警的服务都要 import**。
-- **`a2a.yaml`**：A2A 共享值，统一放 `custom.a2a-*`（协议版本、context-path、tenant、provider-org、agent 名契约）+ Nacos 凭据引用。`ai`（消费端 `ai.agent-registry.*`）与 `ai-agent`（生产端 `ai.agent.registry.*`）各自的块**引用** `${custom.a2a-*}`，agent 名两端共用同一变量，保证契约一致。
-- **`{svc}.yaml`**：本服务业务键 + 本服务私有 `@ConfigurationProperties` 树。`ai` 私有的 `wechat`（微信小程序，绑定 `CommonWechatProperties(prefix="wechat")`）与 `aliyun.oss` bucket 等收在这里，**不放共享层**。
-- **`{svc}-spring.yaml`**：datasource、`spring.profiles`、discovery override、`spring.ai.*` model、gateway 路由。
+| 分类 | dataId / 入口 | 维护边界 |
+|---|---|---|
+| 本地引导 | `application*.yml`，私有 `config/application-dev.properties` | 连接 Nacos 前需要的服务与环境入口；私有文件不进 Git |
+| 共享变量 | `reuse-configuration.yaml` | 跨文件引用的中间件地址、Dubbo 分组等 `custom.*` 变量 |
+| 共享基础设施 | `redis.yaml`、`rabbitmq.yaml`、`elasticsearch.yaml`、`qdrant.yaml`、`dubbo.yaml`、`mybatis-plus.yaml`、`seata.yaml`、`xxl-job.yaml`、`storage.yaml` | 中间件连接、隔离边界及模块开关；存储使用 X File Storage / MinIO |
+| 安全与可观测性 | `security-auth.yaml`、`security-jwt.yaml`、`actuator.yaml`、`logging.yml`、`traffic-governance.yaml`、`swagger.yaml`、`zipkin.yaml`、`admin.yaml` | 认证/租户、人员 JWT、管理端点、日志、流量治理及监控 |
+| 共享 AI 协议 | `a2a.yaml` | A2A 租户、协议入口、提供方和注册契约 |
+| 共享 AI 模型 | `ai-model-secrets.yaml` | 模型选择及私有凭据占位符，按实际消费者导入 |
+| 服务专属 | `{service}.yaml`（gateway 无此项） | 服务自身配置；空映射仍是有效 import 入口 |
+| 服务框架 | `{service}-spring.yaml` | 数据源、模型实现选择或网关路由等服务框架配置 |
 
-## 4. import 顺序（所有服务照此排）
+分类是维护索引，不是新的目录或 group；保留 37 个既有文件名及 `DEFAULT_GROUP`，不为排版拆分/重命名 dataId。
 
-```
-logging → reuse-configuration → traffic-governance → security-auth(仅鉴权服务) → swagger
-→ {svc} → {svc}-spring → qdrant(ai 备用向量库)
-→ mybatis-plus → redis → rabbitmq → elasticsearch → seata → zipkin → admin → dubbo → xxl-job
-→ aliyun(用到 aliyun/钉钉告警的服务) → a2a(A2A 参与方)
-```
+## 3. 配置归属与隔离
 
-后导入的同名键覆盖先导入的；服务私有 `{svc}` / `{svc}-spring` 排在共享基础设施之后，便于在本服务做最终覆盖。
+- 相同配置职责和完整键的归属必须明确，不能靠未说明的重复键覆盖完成迁移；绑定类、消费者、引用关系与必要覆盖顺序一并记录。
+- `reuse-configuration.yaml` 只承载共享变量；Nacos 登录配置来自本地引导，数据库与模型凭据通过私有环境渲染到对应 dataId，不能为省事集中到公开文档。
+- `storage.yaml` 维护通用存储；个人服务不导入公司的 OSS/SMS/钉钉/医疗业务配置。`security-jwt.yaml` 与 `security-auth.yaml` 分别维护签名参数和认证/租户规则，不能因为一个服务不导入后者而宣称它不使用 JWT。
+- 命名空间隔离之外，继续保持现有数据库、Redis 库号、RabbitMQ vhost、Dubbo group、Qdrant collection、ES 索引和对象存储前缀边界。注释不得暗改这些实际值。
+- `ai-memory.yaml`、`message.yaml`、`report.yaml` 当前为空映射，保留其职责与消费者说明，不能据此删除 import。
 
-## 5. 各服务 import 清单（按角色裁剪）
+## 4. import 顺序与消费者
 
-| dataId | ai | ai-agent | user | message | report | gateway |
-|---|:--:|:--:|:--:|:--:|:--:|:--:|
-| logging | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| reuse-configuration | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| traffic-governance | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| security-auth | ❌(自有微信鉴权) | ❌ | ✅ | ✅ | ✅ | ❌ |
-| swagger | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| {svc} / {svc}-spring | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| qdrant | ✅(备用向量库) | ❌ | ❌ | ❌ | ❌ | ❌ |
-| mybatis-plus | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ |
-| redis | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| rabbitmq | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ |
-| elasticsearch | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ |
-| seata | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ |
-| zipkin | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| admin | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
-| dubbo | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ |
-| xxl-job | ✅ | ❌ | ✅ | ✅ | ✅ | ❌ |
-| aliyun | ✅(OSS) | ⬜验证@RequestRequired | ✅ | ✅ | ✅ | ⬜验证@RequestRequired |
-| a2a | ✅(消费) | ✅(生产) | ❌ | ❌ | ❌ | ❌ |
+各服务当前 import 清单及顺序以其三个 profile 文件为准。分类索引只说明谁导入，不要求按表格顺序重排。重复键覆盖、optional 与动态刷新语义均须单独评估，不能只用 YAML 可解析证明重排安全。
 
-> `ai` 故意不导入 `security-auth.yaml`：用自有微信 Bearer 鉴权，fleet JWT 保持关闭。
-> `aliyun` 对 `ai-agent`/`gateway` 标“验证”：取决于该服务是否使用 `@RequestRequired`（utils AOP 触发钉钉告警）或任何 aliyun 能力；用到才 import。
+在同级 `utils` 中运行 `python3 ops/github-dev/scripts/verify_configuration.py`，检查九个服务的 27 个 profile、37 个 dataId、环境隔离和网关路径契约；新增或删除 import 时同步更新分类索引和受影响消费者。
 
-## 6. 改配置铁律
+## 5. 修改与发布
 
-1. **读回验证**：改前读回 Nacos 权威配置，改后整体发布并再次读回校验；不靠本地文件或发布命令判断成功。
-2. **保值不改值**：本规范是布局搬迁，**逐键保留原值**。`reuse-configuration` 的既有 `custom.*` 只增不改不删；utils `@Value` 消费的 `mysql/mysql-gray` 等绝不动。
-3. **AI 自主边界**：配置中心的**结构性调整允许 AI 自主完成**——新增/拆分/合并 dataId、调整 import 与顺序、改 `${}` 引用、调整 Nacos 接入地址 / namespace / group。但**禁止触碰真实密钥/凭证**（access-key/secret、app-secret、API key、DB 密码、token、license 等，疑似密钥只告警、由负责人处理），且布局搬迁必须**保值不改值**，不得擅自变更生产业务配置的实际取值。真实密钥/地址只在 Nacos，仓库与 Nacos 模板只放占位符。
-4. **加法优先迁移**：先建新 dataId（与旧块双份共存，零影响）→ 各服务切 import + 改引用 → 逐个重启读回验证 → **最后一步**才从 `reuse-configuration` 删旧块。
-5. **新增微服务**：复制 `application.yml`、`application-dev.yml`、`application-test.yml`、`application-prod.yml` 模板，仅改 `server.port` + `spring.application.name` + 按角色裁剪 import 列表；profile 文件只按环境声明 Nacos 地址和 namespace，禁止重写引导段结构。若新服务需要通过网关访问或进入 Swagger UI 聚合，必须同步读取并整体更新 Nacos `gateway-spring.yaml`（`DEFAULT_GROUP`）：补 `spring.cloud.gateway.server.webflux.routes` 业务路由和 `springdoc.swagger-ui.urls` 聚合项；发布后读回并验证对应网关文档路径（例如 `/<service>/v3/api-docs`）、`/v3/api-docs/swagger-config` 与 `/swagger-ui/index.html`。
+1. 先读 [注释与归类规范](NACOS_COMMENT_SPEC.md)，确认目标环境与排除清单。注释任务保持有效键、类型、值、占位符、列表/import 顺序不变。
+2. 读取 Nacos 当前完整内容及 metadata，私有快照保存在 Git 外；远端不可达时只整理本地模板，不以旧渲染结果覆盖线上。
+3. 比较整理前后的解析结果和有序列表，验证渲染保留注释与 Spring 引用。凭据特殊字符不能改变 YAML 结构。
+4. 通过既有官方 SDK/CAS 发布流程更新 `github-dev / DEFAULT_GROUP`；并发漂移时停止。发布后逐项读回内容及 metadata，核对服务健康，分别报告 Git、本地检查、实际配置发布和运行态结论。
+5. 真正需要拆分配置时另行验证完整迁移链：新旧并存、消费者切换、读回和运行验证后才清理旧项；不能把重复配置共存直接称为零影响。
+6. 新服务按既有引导结构接入。需要通过网关访问时同步检查路由与后端 Controller 原生路径；需要 Swagger 聚合时再显式启用并验证对应文档入口，不因新增服务默认开放管理或文档端点。
 
----
+## 网关当前路径契约
 
-# 网关专属：路由与 gateway-spring.yaml
+依据个人模板 `gateway-spring.yaml` 的 `spring.cloud.gateway.server.webflux.routes`，按 `order` 从小到大匹配。下表用于维护路由注释，不代表本轮重新部署或线上验收。
 
-## 配置文件
+| order | 服务 | 外部路径 | 下游处理 |
+|---:|---|---|---|
+| 0 | user | `/auth/**`、`/oauth2/**`、两个 OAuth/OIDC well-known 文档入口 | 保留原路径 |
+| 1 | user | `/user/**` | `StripPrefix=1`，剥离 `/user` |
+| 2 | message | `/message/**` | `StripPrefix=1`，剥离 `/message` |
+| 3 | report | `/report/**` | `StripPrefix=1`，剥离 `/report` |
+| 4 | mcp | `/api/mcp/**`、`/.well-known/oauth-protected-resource/**` | 保留原路径 |
+| 5 | ai-agent | `/api/agents/**` | 保留原路径 |
+| 6 | ai-memory | `/api/ai-memory/**` | 保留原路径 |
+| 7 | rag | `/api/rag/**` | 保留原路径；不添加外层 `/rag` |
+| 8 | ai | `/api/**` | 保留原路径，作为上述专属 API 路由之后的兜底 |
 
-当前网关核心路由配置在 Nacos：
+例如 `/message/user-messages` 去掉外层 `/message` 后转给 message；`/api/rag/documents` 直接转给 rag，`/rag/api/rag/documents` 不符合当前路由。认证、租户与业务权限仍由对应过滤器和服务校验，路由匹配不等于授权成功。
 
-```text
-dataId: gateway-spring.yaml
-group: DEFAULT_GROUP
-namespace: <NACOS_NAMESPACE>
-```
-
-仓库不保留本地 `gateway-spring.yaml` 副本。每次修改都以 Nacos 远程配置为准：先读取远程完整内容，修改后整体发布回 Nacos。
-
-## 整理规则
-
-- 使用 `spring.data.redis`，不要使用 Boot 2 旧键 `spring.redis`。
-- Redis、Nacos Discovery、Spring Admin、Zipkin 等基础设施地址优先引用 `reuse-configuration.yaml` 的公共变量，不要在 `gateway-spring.yaml` 中新增裸 IP。
-- 使用 `spring.cloud.gateway.server.webflux.default-filters` 配置公共 `RequestRateLimiter`。
-- Spring Cloud Gateway 5 的路由前缀是 `spring.cloud.gateway.server.webflux.routes`；旧 `spring.cloud.gateway.routes` 不再作为有效配置使用，整理远程配置时必须替换成新前缀。
-- 每条路由只保留自己的 `id`、`uri`、`predicates` 和必要的路径改写。
-- 服务转发使用 `lb://服务名`。
-- 不在 Nacos 路由里写业务权限规则。
-- 不在 Nacos 路由里写旧 token 鉴权规则。
-- 当前保留 `user`、`message`、`ai` 和 `report` 服务路由；新增微服务时让 AI 同步评估业务路由和 Swagger UI 聚合项。
-- OpenAPI 原始文档通过普通网关路由转发；Swagger UI 下拉列表只维护在 Nacos `gateway-spring.yaml` 的 `springdoc.swagger-ui.urls`。
-- 新增微服务时，必须保证对应前缀能转发 `/v3/api-docs`，需要聚合时还要同步补 `springdoc.swagger-ui.urls` 并验证 `/v3/api-docs/swagger-config`。
-
-## 当前 user 路由约定
-
-`user` 后端升级后认证入口是 `/auth/**`：
-
-```yaml
-- id: user
-  uri: lb://user
-  predicates:
-    - Path=/user/**,/auth/**
-  filters:
-    - RewritePath=/user/(?<segment>.*), /${segment}
-```
-
-含义：
-
-- `/auth/sessions` 直接转发到 `user` 服务 `/auth/sessions`。
-- `/auth/current/resources` 直接转发到 `user` 服务 `/auth/current/resources`。
-- `/user/auth/sessions` 兼容外部 user 前缀，转发到 `user` 服务 `/auth/sessions`。
-- `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于读取 OpenAPI 原始文档。
-
-## 当前 message 路由约定
-
-`message` 服务统一使用 `/message/**` 网关前缀：
-
-```yaml
-- id: message
-  uri: lb://message
-  predicates:
-    - Path=/message/**
-  filters:
-    - RewritePath=/message/(?<segment>.*), /${segment}
-```
-
-含义：
-
-- `/message/**` 转发到 `message` 服务对应真实路径。
-- `/message/v3/api-docs` 转发到 `message` 服务 `/v3/api-docs`，用于读取 OpenAPI 原始文档。
-
-## 当前 AI 路由约定
-
-AI 服务当前保留小程序现有 `/api/**` 真实路径，不改写路径：
-
-```yaml
-- id: ai
-  uri: lb://ai
-  predicates:
-    - Path=/api/**
-```
-
-含义：
-
-- `/api/**` 保持 AI 小程序现有路径不变，直接转发到 AI 服务。
-- 当前 AI 文档没有加入 Swagger UI 聚合；若后续需要聚合，需要同步设计 `/ai/**` 或其它可转发 `/v3/api-docs` 的稳定前缀。
-
-## 当前 report 路由约定
-
-`report` 服务统一使用 `/report/**` 网关前缀：
-
-```yaml
-- id: report
-  uri: lb://report
-  predicates:
-    - Path=/report/**
-  filters:
-    - RewritePath=/report/(?<segment>.*), /${segment}
-```
-
-含义：
-
-- `/report/**` 转发到 `report` 服务对应真实路径。
-- `/report/v3/api-docs` 转发到 `report` 服务 `/v3/api-docs`，用于读取 OpenAPI 原始文档。
-
-## 当前 OpenAPI 文档转发约定
-
-网关使用 Springdoc 官方 Swagger UI 做文档聚合；聚合服务列表只维护在 Nacos 远程 `gateway-spring.yaml` 的 `springdoc.swagger-ui.urls`，仓库不保留本地聚合配置副本。Swagger UI 入口：
-
-```text
-http://网关地址/swagger-ui/index.html
-```
-
-各服务 OpenAPI 原始文档仍通过普通路由访问：
-
-```text
-http://网关地址/user/v3/api-docs
-http://网关地址/message/v3/api-docs
-http://网关地址/report/v3/api-docs
-```
-
-## 发布后验证
-
-```bash
-curl -sS "http://<NACOS_ADDR>/nacos/v3/client/cs/config?dataId=gateway-spring.yaml&groupName=DEFAULT_GROUP&namespaceId=<NACOS_NAMESPACE>"
-./gradlew clean test bootJar --no-daemon
-```
+基础设施使用 `spring.data.redis`；全局 `RequestRateLimiter` 与精确 Origin CORS 白名单保持现有配置。共享 `swagger.yaml` 当前关闭 API docs 与 Swagger UI，模板没有配置 `springdoc.swagger-ui.urls`，不能沿用旧文档声称聚合页已启用。今后显式开放文档时，另行配置并验证可达路径及访问控制。
