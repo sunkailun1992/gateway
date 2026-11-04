@@ -13,6 +13,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.util.Map;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -136,6 +137,70 @@ class CorsPolicyHttpIntegrationTest {
         client.get().uri("/report/records").exchange().expectStatus().isOk();
         client.get().uri("/report/records").header("Origin", "http://127.0.0.1:" + port).exchange()
                 .expectStatus().isOk().expectHeader().doesNotExist("Access-Control-Allow-Origin");
+    }
+
+    @Test
+    void backendCorsDoesNotDuplicateGatewayHeadersOrChangePostBodyAndAuthorization() {
+        BACKEND.respondWithHeaders(Map.of(
+                "Access-Control-Allow-Origin", List.of(ADMIN),
+                "Access-Control-Allow-Credentials", List.of("true"),
+                "Access-Control-Expose-Headers", List.of("Authorization"),
+                "X-Backend-Trace", List.of("synthetic-trace")));
+        client.post().uri("/report/records").header("Origin", ADMIN)
+                .header("Authorization", "Bearer synthetic-browser-token")
+                .bodyValue("{}").exchange().expectStatus().isOk()
+                .expectHeader().valueEquals("Access-Control-Allow-Origin", ADMIN)
+                .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
+                .expectHeader().valueEquals("Access-Control-Expose-Headers", "Authorization, traceId, X-Trace-Id")
+                .expectHeader().valueEquals("X-Backend-Trace", "synthetic-trace")
+                .expectBody(String.class).isEqualTo("stub:/records");
+        assertThat(BACKEND.receivedAuthorizations()).containsExactly("Bearer synthetic-browser-token");
+        assertThat(BACKEND.receivedPaths()).containsExactly("/records");
+    }
+
+    @Test
+    void conflictingBackendCorsCannotOverrideGatewayAllowlistAndExposedHeaders() {
+        BACKEND.respondWithHeaders(Map.of(
+                "access-control-allow-origin", List.of("https://other.example.test"),
+                "access-control-allow-credentials", List.of("false"),
+                "access-control-expose-headers", List.of("X-Backend-Private")));
+        client.get().uri("/report/records").header("Origin", ADMIN).exchange()
+                .expectStatus().isOk()
+                .expectHeader().valueEquals("Access-Control-Allow-Origin", ADMIN)
+                .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
+                .expectHeader().valueEquals("Access-Control-Expose-Headers", "Authorization, traceId, X-Trace-Id");
+    }
+
+    @Test
+    void backendCannotReenableCredentialsDisabledByGateway() {
+        policy(Map.of("gateway.cors.allowed-origins", ADMIN, "gateway.cors.allow-credentials", false,
+                "gateway.cors.exposed-headers", "X-Gateway-Trace"));
+        BACKEND.respondWithHeaders(Map.of(
+                "Access-Control-Allow-Origin", List.of(ADMIN),
+                "Access-Control-Allow-Credentials", List.of("true"),
+                "Access-Control-Expose-Headers", List.of("Authorization")));
+        client.get().uri("/report/records").header("Origin", ADMIN).exchange()
+                .expectStatus().isOk()
+                .expectHeader().valueEquals("Access-Control-Allow-Origin", ADMIN)
+                .expectHeader().doesNotExist("Access-Control-Allow-Credentials")
+                .expectHeader().valueEquals("Access-Control-Expose-Headers", "X-Gateway-Trace");
+    }
+
+    @Test
+    void ordinaryAndSameOriginRequestsDoNotInheritBackendCorsPolicy() {
+        BACKEND.respondWithHeaders(Map.of(
+                "Access-Control-Allow-Origin", List.of(ADMIN),
+                "Access-Control-Allow-Credentials", List.of("true"),
+                "Access-Control-Expose-Headers", List.of("Authorization")));
+        for (String origin : new String[]{"", "http://127.0.0.1:" + port}) {
+            var request = client.get().uri("/report/records");
+            if (!origin.isEmpty()) request.header("Origin", origin);
+            request.exchange().expectStatus().isOk()
+                    .expectHeader().doesNotExist("Access-Control-Allow-Origin")
+                    .expectHeader().doesNotExist("Access-Control-Allow-Credentials")
+                    .expectHeader().doesNotExist("Access-Control-Expose-Headers");
+        }
+        assertThat(BACKEND.receivedPaths()).containsExactly("/records", "/records");
     }
 
     private void policy(Map<String, Object> values) {

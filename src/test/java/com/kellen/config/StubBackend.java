@@ -9,6 +9,7 @@ import java.io.UncheckedIOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -21,6 +22,8 @@ final class StubBackend {
     private final HttpServer server;
 
     private final List<String> receivedPaths = new CopyOnWriteArrayList<>();
+    private final List<String> receivedAuthorizations = new CopyOnWriteArrayList<>();
+    private volatile Map<String, List<String>> responseHeaders = Map.of();
 
     private StubBackend(HttpServer server) {
         this.server = server;
@@ -33,6 +36,9 @@ final class StubBackend {
             server.createContext("/", exchange -> {
                 String path = exchange.getRequestURI().getRawPath();
                 backend.receivedPaths.add(path);
+                String authorization = exchange.getRequestHeaders().getFirst("Authorization");
+                if (authorization != null) backend.receivedAuthorizations.add(authorization);
+                backend.responseHeaders.forEach((name, values) -> exchange.getResponseHeaders().put(name, values));
                 byte[] body = ("stub:" + path).getBytes(StandardCharsets.UTF_8);
                 exchange.sendResponseHeaders(200, body.length);
                 try (OutputStream out = exchange.getResponseBody()) {
@@ -63,6 +69,16 @@ final class StubBackend {
 
     void clear() {
         receivedPaths.clear();
+        receivedAuthorizations.clear();
+        responseHeaders = Map.of();
+    }
+
+    void respondWithHeaders(Map<String, List<String>> headers) {
+        responseHeaders = Map.copyOf(headers);
+    }
+
+    List<String> receivedAuthorizations() {
+        return receivedAuthorizations;
     }
 
     void stop() {

@@ -66,16 +66,15 @@ class NacosDevConfigDataOrderTest {
     }
 
     @Test
-    void testAndProdDoNotReadTheDevPrivateFile() throws Exception {
+    void otherProfilesKeepGithubDevConnectionWithoutReadingThePrivateDevFile() throws Exception {
         for (String profile : List.of("test", "prod")) {
             ProbeResult result = probe(profile,
-                    Map.of("GITHUB_NACOS_" + profile.toUpperCase(java.util.Locale.ROOT) + "_SERVER_ADDR",
-                            profile + ".invalid:8848"),
+                    Map.of("GITHUB_NACOS_DEV_SERVER_ADDR", "shared-dev.invalid:8848"),
                     privateProperties("GITHUB_NACOS_DEV_SERVER_ADDR"));
 
             assertThat(result.exitCode()).as(result.output()).isZero();
-            assertThat(result.output()).contains("RESOLVER_ADDRESS=" + profile + ".invalid:8848",
-                    "RESOLVER_NAMESPACE=github-" + profile, "PRIVATE_DEV_FILE_PRESENT=false");
+            assertThat(result.output()).contains("RESOLVER_ADDRESS=shared-dev.invalid:8848",
+                    "RESOLVER_NAMESPACE=github-dev", "PRIVATE_DEV_FILE_PRESENT=false");
             assertThat(result.output()).doesNotContain("private-dev.invalid", "RESOLVER_GROUP=PROBE_GROUP");
         }
     }
@@ -83,22 +82,30 @@ class NacosDevConfigDataOrderTest {
     @Test
     void explicitSpringProfileOverridesTheAppEnvDefault() throws Exception {
         ProbeResult result = probe("dev", Map.of("SPRING_PROFILES_ACTIVE", "test",
-                        "GITHUB_NACOS_TEST_SERVER_ADDR", "test.invalid:8848"),
+                        "GITHUB_NACOS_DEV_SERVER_ADDR", "shared-dev.invalid:8848"),
                 privateProperties("GITHUB_NACOS_DEV_SERVER_ADDR"));
 
         assertThat(result.exitCode()).as(result.output()).isZero();
-        assertThat(result.output()).contains("ACTIVE_PROFILES=test", "RESOLVER_ADDRESS=test.invalid:8848",
-                "PRIVATE_DEV_FILE_PRESENT=false");
+        assertThat(result.output()).contains("ACTIVE_PROFILES=test", "RESOLVER_ADDRESS=shared-dev.invalid:8848",
+                "RESOLVER_NAMESPACE=github-dev", "PRIVATE_DEV_FILE_PRESENT=false");
     }
 
     @Test
-    void missingAddressFailsRequiredResolutionWithoutLoopbackFallback() throws Exception {
-        ProbeResult result = probe("dev", Map.of(), "GITHUB_NACOS_DEV_NAMESPACE=github-dev\n");
+    void allProfilesShareTheConfiguredDevelopmentEndpointDefault() throws Exception {
+        String defaultAddress = null;
+        for (String profile : List.of("dev", "test", "prod")) {
+            ProbeResult result = probe(profile, Map.of(), "");
 
-        assertThat(result.exitCode()).as(result.output()).isNotZero();
-        assertThat(result.output()).contains("Could not resolve placeholder 'GITHUB_NACOS_SERVER_ADDR'");
-        assertThat(result.output()).doesNotContain("RESOLVER_ADDRESS=127.0.0.1", "FINAL_ADDRESS=127.0.0.1",
-                "CONFIGURATION_READY=true");
+            assertThat(result.exitCode()).as(result.output()).isZero();
+            assertThat(result.output()).contains("RESOLVER_NAMESPACE=github-dev", "CONFIGURATION_READY=true")
+                    .doesNotContain("RESOLVER_ADDRESS=127.0.0.1", "RESOLVER_ADDRESS=localhost");
+            String address = result.output().lines().filter(line -> line.startsWith("RESOLVER_ADDRESS="))
+                    .map(line -> line.substring("RESOLVER_ADDRESS=".length())).findFirst().orElseThrow();
+            assertThat(address).matches("[^\\s:]+:[0-9]+");
+            assertThat(result.output()).contains("FINAL_ADDRESS=" + address);
+            if (defaultAddress == null) defaultAddress = address;
+            assertThat(address).isEqualTo(defaultAddress);
+        }
     }
 
     private void assertSuccessfulDev(ProbeResult result, String address) {

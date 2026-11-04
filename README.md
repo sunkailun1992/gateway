@@ -138,7 +138,7 @@ curl -sS "http://<NACOS_ADDR>/nacos/v3/client/cs/config?dataId=gateway-spring.ya
 
 启动本地网关：
 
-在 gateway 仓库根目录启动。默认 profile 为 `dev`，Spring Boot 自动读取本机 `config/application-dev.properties` 的五个 `GITHUB_NACOS_*` 连接键；该文件权限为 `0600`，已忽略，不提交真实地址或密码。无需修改 `application.yml` 或预先 export，OS 环境变量仍优先。IDE working directory 也设为本仓库根目录。`test`/`prod` 不读取 dev 文件；dev 地址未配置时立即失败，不再尝试 localhost。
+在 gateway 仓库根目录启动。默认 profile 为 `dev`，Spring Boot 自动读取本机 `config/application-dev.properties` 的五个 `GITHUB_NACOS_*` 连接键；该文件权限为 `0600`，已忽略，不提交真实地址或密码。无需修改 `application.yml` 或预先 export，OS 环境变量仍优先。IDE working directory 也设为本仓库根目录。按当前开发环境约定，三个 profile 均连接个人 `github-dev`；`test`/`prod` 不读取 dev 私有文件，仍使用相同的 Nacos dev 连接变量与既有默认值，不回落到 localhost。
 
 ```bash
 ./gradlew bootRun
@@ -175,6 +175,8 @@ AI 新增或修改代码时，注释要让人看懂这段代码 AI 为什么这�
 ## 显式 CORS 策略
 
 网关的 `CorsFilter` 统一使用 Spring `CorsWebFilter` / `DefaultCorsProcessor`。`gateway.cors.allowed-origins` 必须逐项列出完整 HTTP(S) origin；默认空列表拒绝跨域，`*`、origin pattern、`null`、路径或嵌入凭据均不接受。无 Origin 与同源请求继续路由，不影响后端业务鉴权或 Authorization 透传。不能仅依赖 `spring.cloud.gateway.*.globalcors` 约束这一入口。
+
+转发响应通过 Gateway 的 `HttpHeadersFilter.Type.RESPONSE` 扩展点移除下游的 `Access-Control-*`，再与网关响应合并，避免登录、租户查询等接口产生重复或冲突的 CORS 标头。后端服务仍可保留自己的直连跨域策略；网关关闭凭证时，下游也不能重新开启。非 CORS 响应标头、响应体及请求认证头保持透传。
 
 可覆盖 `gateway.cors.allowed-methods`、`allowed-headers`、`exposed-headers`、`allow-credentials`、`max-age`。默认方法为 GET/HEAD/POST/PUT/DELETE/PATCH/OPTIONS；默认请求头保留 Authorization、Content-Type、Accept 与现有安全 trace/traffic 头，不允许任意身份头。凭证默认只对显式 origin 开启，可设 `allow-credentials=false`；不支持通配符。默认预检缓存1800秒，允许0–86400秒。非法配置失败关闭，拒绝跨域请求；策略每请求读取当前环境以支持刷新。
 

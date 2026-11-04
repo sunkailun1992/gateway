@@ -18,6 +18,7 @@
 - 使用 Nacos Discovery 做服务发现。
 - 通过 `lb://service-name` 转发到后端服务。
 - 处理跨域预检。
+- 对外 CORS 策略由网关统一产生；通过响应标头扩展点移除下游的 `Access-Control-*` 后再合并，避免重复及下游覆盖凭证策略，后端直连 CORS 配置保留。
 - 使用 `RequestRateLimiter` 做网关级限流。
 - 使用 OpenAPI Starter 聚合 OpenAPI3 文档。
 - 在路由与端点分发前收敛 Actuator 与 OpenAPI 文档的公网暴露面（`SensitiveEndpointBlockFilter`）。
