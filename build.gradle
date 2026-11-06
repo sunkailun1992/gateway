@@ -10,7 +10,7 @@ plugins {
  * 项目基础信息
  */
 group = 'com.gateway'
-version = '1.0.9'
+version = '1.1.0'
 description = 'gateway'
 
 def privateMavenUrl = providers.gradleProperty('privateMavenUrl')
@@ -41,6 +41,7 @@ java {
 }
 
 springBoot {
+    buildInfo()
     mainClass = 'com.kellen.GatewayApplication'
 }
 
@@ -78,6 +79,7 @@ test {
 
 dependencyManagement {
     imports {
+        mavenBom "io.opentelemetry:opentelemetry-bom:1.59.0"
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
         mavenBom "com.alibaba.cloud:spring-cloud-alibaba-dependencies:${springCloudAlibabaVersion}"
     }
@@ -101,6 +103,8 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'io.opentelemetry:opentelemetry-api:1.59.0'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
     implementation "org.springdoc:springdoc-openapi-starter-webflux-ui:${springdocVersion}"
     testImplementation 'org.springframework.boot:spring-boot-starter-test'

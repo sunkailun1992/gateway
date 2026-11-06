@@ -26,7 +26,7 @@
 
 ## 禁止事项
 
-- 不在网关做 token、header、用户、权限或 Actuator 自定义鉴权过滤。
+- 网关不做业务 token、用户或权限鉴权；独立管理监听端口仅为 Prometheus 执行运维令牌校验。
 - 不恢复旧 `TokenFilter`、`UserRpc`、`RedisUtils` token 鉴权。
 - 不解析、组装或判断业务 `ApiResponse`。
 - 不查询 Redis 用户对象、接口权限列表或登录态。
@@ -40,7 +40,7 @@
 
 ## 当前路由
 
-网关在路由前固定拦截自身及后端转发路径中的 Actuator 管理端点，返回 404；只保留根路径 `/actuator/health` 与 liveness/readiness 探针。该规则不读取身份、权限或管理令牌，业务鉴权仍由后端负责。Swagger UI / OpenAPI 在 `prod` profile 默认关闭，其它 profile 默认开启，可通过个人 Nacos `gateway.exposure.api-docs-enabled` 显式控制。此过滤不替代来源白名单、CORS 或后端授权。
+网关在路由前固定拦截自身及后端转发路径中的 Actuator 管理端点，返回 404；只保留根路径 `/actuator/health` 与 liveness/readiness 探针。公网规则不读取身份、权限或管理令牌，业务鉴权仍由后端负责。独立管理端口只允许探活和带有效 `actuatorReq` 的 Prometheus GET，其余管理入口固定 404，详见 [监控采集与回滚](docs/fleet-observability.md)。Swagger UI / OpenAPI 在 `prod` profile 默认关闭，其它 profile 默认开启，可通过个人 Nacos `gateway.exposure.api-docs-enabled` 显式控制。此过滤不替代来源白名单、CORS 或后端授权。
 
 当前远程 Nacos `gateway-spring.yaml` 维护 `user`、`message`、`ai` 和 `report` 服务路由：
 

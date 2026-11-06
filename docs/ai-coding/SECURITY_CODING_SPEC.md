@@ -16,7 +16,7 @@
 ## 路由暴露
 
 - 路由和 RewritePath 规则必须最小化匹配范围，禁止把管理接口、内部接口、Actuator、Nacos、Seata、XXL-JOB、Kibana 等运维入口意外暴露到公网路径。
-- OpenAPI、Actuator、Admin、Zipkin 等调试或监控入口必须明确运行环境和访问控制，不得默认在生产公网开放。
+- OpenAPI、Actuator、Prometheus、OpenTelemetry 等调试或监控入口必须明确运行环境和访问控制，不得默认在生产公网开放。
 - 上一条由 `SensitiveEndpointBlockFilter` 在网关落地：路径中含 `actuator` 段的请求一律 404（只保留网关自身 `/actuator/health` 及 liveness、readiness），Swagger UI 与 `/v3/api-docs` 在 `prod` profile 默认 404；不依赖 Nacos `management.*`、`springdoc.*` 或外层 nginx 是否收紧。新增监控入口、文档路径或路由前缀时必须同步检查拦截规则和回归测试，不得为调试临时删除或放宽。
 - 新增微服务路由时，必须确认目标服务自身已启用认证授权，不能用网关路由替代后端权限。
 - 路由改写不得让调用方通过替换路径、服务名、版本号或前缀访问其他租户、其他服务、内部接口或未授权资源，防止水平越权入口绕过。

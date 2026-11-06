@@ -57,7 +57,3 @@ spring:
       - "optional:nacos:gateway-spring.yaml?refreshEnabled=true"
       # redis.yaml：Redis 连接配置，供网关限流、缓存或会话能力使用。
       - "optional:nacos:redis.yaml?refreshEnabled=true"
-      # zipkin.yaml：链路追踪采样和上报配置。
-      - "optional:nacos:zipkin.yaml?refreshEnabled=true"
-      # admin.yaml：Spring Boot Admin 注册和监控配置。
-      - "optional:nacos:admin.yaml?refreshEnabled=true"

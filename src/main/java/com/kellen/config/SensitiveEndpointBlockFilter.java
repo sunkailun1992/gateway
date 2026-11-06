@@ -2,12 +2,14 @@ package com.kellen.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.boot.actuate.autoconfigure.web.server.ManagementPortType;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.PathContainer;
 import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.http.server.reactive.ServerHttpRequestDecorator;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -15,6 +17,10 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 import java.net.InetSocketAddress;
+import java.net.SocketAddress;
+import java.util.concurrent.atomic.AtomicReference;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -28,8 +34,8 @@ import java.util.Set;
  * 为防止远程配置误将 shutdown、env 等管理入口暴露，这里在路由和端点分发之前
  * 按路径直接返回 404，让这些入口不再依赖远程配置是否收紧。</p>
  *
- * <p>只按路径判定，不读取 token、身份或权限头，属于暴露面收敛而不是鉴权；认证授权仍由后端服务负责。
- * 网关自身的 {@code /actuator/health}（含 liveness/readiness）保留给探活，其它运维端点需要时走内网直连实例端口。</p>
+ * <p>公网只按路径收敛暴露面，不读取身份或权限头；独立管理监听端口使用运维令牌，业务认证授权仍由后端服务负责。
+ * 网关自身的 {@code /actuator/health}（含 liveness/readiness）保留给探活，其它运维采集只走独立管理端口并验证运维令牌。</p>
  */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
@@ -52,22 +58,91 @@ public class SensitiveEndpointBlockFilter implements WebFilter {
     private final GatewayExposureProperties properties;
 
     private final boolean prodProfile;
+    private final Environment environment;
 
     public SensitiveEndpointBlockFilter(GatewayExposureProperties properties, Environment environment) {
         this.properties = properties;
+        this.environment = environment;
         this.prodProfile = environment.matchesProfiles("prod");
     }
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         List<String> segments = normalizedSegments(exchange.getRequest().getPath().pathWithinApplication());
+        if (isManagementPort(exchange.getRequest())) {
+            return managementRequest(exchange, chain);
+        }
         String reason = blockReason(segments);
+        // 自定义 Actuator base-path 同样不能在公网主端口暴露。
+        String managementBase = environment.getProperty("management.endpoints.web.base-path", "/actuator");
+        List<String> baseSegments = normalizedSegments(PathContainer.parsePath(managementBase));
+        if (!"/actuator".equals(managementBase) && (baseSegments.isEmpty()
+                || containsSequence(segments, baseSegments))) {
+            reason = "actuator";
+        }
         if (reason == null) {
             return chain.filter(exchange);
         }
         logBlocked(exchange.getRequest(), reason);
         exchange.getResponse().setStatusCode(HttpStatus.NOT_FOUND);
         return exchange.getResponse().setComplete();
+    }
+
+    /** 只使用服务器实际监听端口判定管理流量，转发头和客户端 Host 均不能获得管理权限。 */
+    private boolean isManagementPort(ServerHttpRequest request) {
+        Integer managementPort = environment.getProperty("local.management.port", Integer.class);
+        if (ManagementPortType.get(environment) != ManagementPortType.DIFFERENT || managementPort == null) {
+            return false;
+        }
+        try {
+            Object nativeRequest = ServerHttpRequestDecorator.getNativeRequest(request);
+            if (!(nativeRequest instanceof reactor.netty.http.server.HttpServerRequest nettyRequest)) {
+                return false;
+            }
+            AtomicReference<SocketAddress> local = new AtomicReference<>();
+            // Spring/Netty 的逻辑 localAddress 可能已受 Forwarded by= 改写，只认原始 Channel 地址。
+            nettyRequest.withConnection(connection -> local.set(connection.channel().localAddress()));
+            return local.get() instanceof InetSocketAddress address && address.getPort() == managementPort;
+        } catch (IllegalArgumentException unsupportedRequest) {
+            return false;
+        }
+    }
+
+    /** 独立管理服务器只允许探活和受令牌保护的 GET Prometheus；不受远程 exposure=* 扩大。 */
+    private Mono<Void> managementRequest(ServerWebExchange exchange, WebFilterChain chain) {
+        String base = environment.getProperty("management.endpoints.web.base-path", "/actuator");
+        if ("/".equals(base)) base = "";
+        String path = exchange.getRequest().getPath().pathWithinApplication().value();
+        String health = base + "/" + environment.getProperty("management.endpoints.web.path-mapping.health", "health");
+        String prometheus = base + "/" + environment.getProperty("management.endpoints.web.path-mapping.prometheus", "prometheus");
+        boolean read = exchange.getRequest().getMethod() == org.springframework.http.HttpMethod.GET;
+        if (read && (path.equals(health) || path.equals(health + "/liveness") || path.equals(health + "/readiness"))) {
+            return chain.filter(exchange);
+        }
+        if (!read || !path.equals(prometheus)) {
+            exchange.getResponse().setStatusCode(HttpStatus.NOT_FOUND);
+            return exchange.getResponse().setComplete();
+        }
+        String token;
+        try {
+            token = environment.getProperty("security.actuator.token");
+        } catch (IllegalArgumentException unresolved) {
+            token = null;
+        }
+        String provided = exchange.getRequest().getHeaders().getFirst("actuatorReq");
+        if (token == null || token.isBlank() || provided == null || !MessageDigest.isEqual(
+                token.getBytes(StandardCharsets.UTF_8), provided.getBytes(StandardCharsets.UTF_8))) {
+            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+            return exchange.getResponse().setComplete();
+        }
+        return chain.filter(exchange);
+    }
+
+    private static boolean containsSequence(List<String> path, List<String> sequence) {
+        for (int i = 0; i <= path.size() - sequence.size(); i++) {
+            if (path.subList(i, i + sequence.size()).equals(sequence)) return true;
+        }
+        return false;
     }
 
     private String blockReason(List<String> segments) {

@@ -41,6 +41,18 @@ class SensitiveEndpointBlockFilterTest {
         assertThat(outcome.status()).isEqualTo(HttpStatus.NOT_FOUND);
     }
 
+    @Test void encodedCustomManagementBaseCannotBypassPublicBlock() {
+        MockEnvironment environment = new MockEnvironment().withProperty("management.endpoints.web.base-path", "/ops");
+        SensitiveEndpointBlockFilter filter = new SensitiveEndpointBlockFilter(new GatewayExposureProperties(), environment);
+        for (String path : new String[]{"/%6fps/prometheus", "/report/ops/prometheus", "/report/%6fps/prometheus"}) {
+            MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.method(org.springframework.http.HttpMethod.GET, java.net.URI.create(path)));
+            AtomicBoolean forwarded = new AtomicBoolean();
+            filter.filter(exchange, ignored -> { forwarded.set(true); return Mono.empty(); }).block();
+            assertThat(forwarded.get()).as(path).isFalse();
+            assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        }
+    }
+
     private static Outcome request(String path, Boolean apiDocsEnabled, String profile) {
         GatewayExposureProperties properties = new GatewayExposureProperties();
         properties.setApiDocsEnabled(apiDocsEnabled);
@@ -48,7 +60,7 @@ class SensitiveEndpointBlockFilterTest {
         environment.setActiveProfiles(profile);
         SensitiveEndpointBlockFilter filter = new SensitiveEndpointBlockFilter(properties, environment);
 
-        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path));
+        MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.method(org.springframework.http.HttpMethod.GET, java.net.URI.create(path)));
         AtomicBoolean forwarded = new AtomicBoolean();
         filter.filter(exchange, ignored -> {
             forwarded.set(true);
