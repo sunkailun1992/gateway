@@ -181,3 +181,7 @@ AI 新增或修改代码时，注释要让人看懂这段代码 AI 为什么这�
 可覆盖 `gateway.cors.allowed-methods`、`allowed-headers`、`exposed-headers`、`allow-credentials`、`max-age`。默认方法为 GET/HEAD/POST/PUT/DELETE/PATCH/OPTIONS；默认请求头保留 Authorization、Content-Type、Accept 与现有安全 trace/traffic 头，不允许任意身份头。凭证默认只对显式 origin 开启，可设 `allow-credentials=false`；不支持通配符。默认预检缓存1800秒，允许0–86400秒。非法配置失败关闭，拒绝跨域请求；策略每请求读取当前环境以支持刷新。
 
 `CorsPolicyHttpIntegrationTest` 通过真实随机端口和 stub 后端覆盖 allowlist、未知/null origin、凭证/通配符、方法与请求头限制、同源及普通路由。本轮版本仍为1.0.7。
+
+## HTTP安全日志与全链观测
+
+当前服务版本为 `1.1.2`，精确消费轻量 `com:fleet-observability:0.1.0`，由公共模块为 WebFlux 请求生成安全终态事件。网关继续保持转发职责，日志正文只输出按路由与类型白名单投影的有限字段，流式内容默认省略。该模块仅依赖 JSON、SLF4J 和 OTel API；构建不引入完整 `utils` 或业务存储能力。CI 先独立发布轻量子模块到 Maven Local，再编译网关。目标环境日志、Trace、HTTP/SSE透传与原生IDE启动需要独立验收。

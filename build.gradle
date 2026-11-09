@@ -10,7 +10,7 @@ plugins {
  * 项目基础信息
  */
 group = 'com.gateway'
-version = '1.1.1'
+version = '1.1.2'
 description = 'gateway'
 
 def privateMavenUrl = providers.gradleProperty('privateMavenUrl')
@@ -27,6 +27,7 @@ ext {
     nacosClientVersion = '3.2.2'
     springdocVersion = '3.0.3'
     rpcApiVersion = '1.0.7'
+    fleetObservabilityVersion = '0.1.0'
 }
 /**
  * 编码规则
@@ -98,6 +99,8 @@ configurations.configureEach {
  */
 dependencies {
     implementation "com:rpc-api:${rpcApiVersion}"
+    // HTTP 安全终态日志仅引入轻量公共模块，保持网关依赖边界。
+    implementation "com:fleet-observability:${fleetObservabilityVersion}"
     implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery'
     implementation 'com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-config'
     implementation 'org.springframework.cloud:spring-cloud-starter-gateway-server-webflux'
