@@ -184,6 +184,10 @@ AI 新增或修改代码时，注释要让人看懂这段代码 AI 为什么这�
 
 ## HTTP安全日志与全链观测
 
-当前服务版本为 `1.1.3`，精确消费轻量 `com:fleet-observability:0.1.1`，由公共模块为 WebFlux 请求生成安全终态事件。共享日志配置必须同时设置 `logging.structured.json.context.include=false`，由固定安全成员 SPI 合并业务 KVP 与合法 trace/span 身份，避免 MDC 同名键导致 ECS 整条编码失败。未知 MDC、原始日志正文、异常正文和堆栈仍不输出；普通错误仅保留安全 logger/异常类名摘要。HTTP 正文只按路由与类型白名单投影，流式内容默认省略。
+当前服务版本为 `1.1.4`，精确消费轻量 `com:fleet-observability:0.1.1`，由公共模块为 WebFlux 请求生成安全终态事件。共享日志配置必须同时设置 `logging.structured.json.context.include=false`，由固定安全成员 SPI 合并业务 KVP 与合法 trace/span 身份，避免 MDC 同名键导致 ECS 整条编码失败。未知 MDC、原始日志正文、异常正文和堆栈仍不输出；普通错误仅保留安全 logger/异常类名摘要。HTTP 正文只按路由与类型白名单投影，流式内容默认省略。
 
 该模块仅依赖 JSON、SLF4J 和 OTel API；构建不引入完整 `utils` 或业务存储能力。CI 先独立发布轻量子模块到 Maven Local，再编译网关。固定部署包名仍为 `gateway.jar`，`applicationVersion` 纳入 `bootJar` 输入，版本变化必须重新生成 Manifest。目标环境日志、Trace、HTTP/SSE透传与原生IDE启动需要独立验收。
+
+## macOS 原生 DNS 运行依赖
+
+运行制品显式携带 `netty-resolver-dns-native-macos` 的 `osx-aarch_64` classifier，版本由同一 Spring Boot/Netty BOM 管理；现有 Intel classifier 保留。该依赖不按构建宿主筛选，因此 Linux CI 打出的 Jar 也能在 Apple Silicon 上加载对应原生库。Linux 继续使用其正常平台实现，不调整 DNS 服务器、查询或回退策略。构建后应核对实际运行图和 Jar 中版本一致，并在对应架构的全新 JVM 验证原生库可用性；打包成功不代替网络、服务健康或业务验收。

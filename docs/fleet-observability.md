@@ -2,7 +2,7 @@
 
 ## 需求与边界
 
-本批版本为 `1.1.3`，精确消费 `com:fleet-observability:0.1.1`。使用 Micrometer Prometheus registry 提供指标，OpenTelemetry API 1.59.0 仅消费统一启动入口注入的 Java agent；应用不建立 SDK，也不依赖重型 utils。Java agent 的指标与日志 exporter 保持关闭（`OTEL_METRICS_EXPORTER=none`、`OTEL_LOGS_EXPORTER=none`），日志继续走共享 ES 配置。生产 classpath 不引入测试 SDK。
+本批版本为 `1.1.4`，精确消费 `com:fleet-observability:0.1.1`。使用 Micrometer Prometheus registry 提供指标，OpenTelemetry API 1.59.0 仅消费统一启动入口注入的 Java agent；应用不建立 SDK，也不依赖重型 utils。Java agent 的指标与日志 exporter 保持关闭（`OTEL_METRICS_EXPORTER=none`、`OTEL_LOGS_EXPORTER=none`），日志继续走共享 ES 配置。生产 classpath 不引入测试 SDK。
 
 指标固定维度为 `application=gateway`、`version`、`environment=github-dev`；部署环境可通过 `observability.environment` 覆盖。版本优先使用显式 `spring.application.version`，以便原生 IDEA Spring Boot Run/Debug 与 OTel 的服务版本一致；未指定时使用 Jar 中可选的 `BuildProperties`，两者缺失或空白时标为 `unknown`。IDE 编译没有生成 build-info 也必须能够启动和采集，不要求先运行 Gradle，不创建虚假的构建信息。业务会话 ID、患者、租户、用户、trace ID、URL、prompt 和正文不得作为标签。
 
