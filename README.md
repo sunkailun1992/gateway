@@ -184,4 +184,6 @@ AI 新增或修改代码时，注释要让人看懂这段代码 AI 为什么这�
 
 ## HTTP安全日志与全链观测
 
-当前服务版本为 `1.1.2`，精确消费轻量 `com:fleet-observability:0.1.0`，由公共模块为 WebFlux 请求生成安全终态事件。网关继续保持转发职责，日志正文只输出按路由与类型白名单投影的有限字段，流式内容默认省略。该模块仅依赖 JSON、SLF4J 和 OTel API；构建不引入完整 `utils` 或业务存储能力。CI 先独立发布轻量子模块到 Maven Local，再编译网关。目标环境日志、Trace、HTTP/SSE透传与原生IDE启动需要独立验收。
+当前服务版本为 `1.1.3`，精确消费轻量 `com:fleet-observability:0.1.1`，由公共模块为 WebFlux 请求生成安全终态事件。共享日志配置必须同时设置 `logging.structured.json.context.include=false`，由固定安全成员 SPI 合并业务 KVP 与合法 trace/span 身份，避免 MDC 同名键导致 ECS 整条编码失败。未知 MDC、原始日志正文、异常正文和堆栈仍不输出；普通错误仅保留安全 logger/异常类名摘要。HTTP 正文只按路由与类型白名单投影，流式内容默认省略。
+
+该模块仅依赖 JSON、SLF4J 和 OTel API；构建不引入完整 `utils` 或业务存储能力。CI 先独立发布轻量子模块到 Maven Local，再编译网关。固定部署包名仍为 `gateway.jar`，`applicationVersion` 纳入 `bootJar` 输入，版本变化必须重新生成 Manifest。目标环境日志、Trace、HTTP/SSE透传与原生IDE启动需要独立验收。
