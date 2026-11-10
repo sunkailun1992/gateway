@@ -10,7 +10,7 @@ plugins {
  * 项目基础信息
  */
 group = 'com.gateway'
-version = '1.1.5'
+version = '1.1.6'
 description = 'gateway'
 
 def privateMavenUrl = providers.gradleProperty('privateMavenUrl')
@@ -77,6 +77,7 @@ bootJar {
 
 test {
     useJUnitPlatform()
+    doFirst { systemProperty 'fleet.test.classpath', sourceSets.test.runtimeClasspath.asPath }
 }
 
 dependencyManagement {
@@ -111,8 +112,13 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
     implementation 'io.opentelemetry:opentelemetry-api:1.59.0'
+    // 公共 Instrumenter 提供 HTTP 语义抑制，与既有 OTel API 1.59.0 对齐，不建立应用 SDK。
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:2.25.0'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-reactor-3.1:2.25.0-alpha'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
     implementation "org.springdoc:springdoc-openapi-starter-webflux-ui:${springdocVersion}"
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-testing:1.59.0'
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.59.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

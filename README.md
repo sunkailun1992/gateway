@@ -184,9 +184,23 @@ AI 新增或修改代码时，注释要让人看懂这段代码 AI 为什么这�
 
 ## HTTP安全日志与全链观测
 
-当前服务版本为 `1.1.5`，精确消费轻量 `com:fleet-observability:0.1.2`，由公共模块为 WebFlux 请求生成安全终态事件。共享日志配置必须同时设置 `logging.structured.json.context.include=false`，由固定安全成员 SPI 合并业务 KVP 与合法 trace/span 身份，避免 MDC 同名键导致 ECS 整条编码失败。未知 MDC、原始日志正文、异常正文和堆栈仍不输出；普通错误仅保留安全 logger/异常类名摘要。HTTP 正文只按路由与类型白名单投影，流式内容默认省略。
+当前服务版本为 `1.1.6`，精确消费轻量 `com:fleet-observability:0.1.2`，由公共模块为 WebFlux 请求生成安全终态事件。共享日志配置必须同时设置 `logging.structured.json.context.include=false`，由固定安全成员 SPI 合并业务 KVP 与合法 trace/span 身份，避免 MDC 同名键导致 ECS 整条编码失败。未知 MDC、原始日志正文、异常正文和堆栈仍不输出；普通错误仅保留安全 logger/异常类名摘要。HTTP 正文只按路由与类型白名单投影，流式内容默认省略。
 
 该模块仅依赖 JSON、SLF4J 和 OTel API；构建不引入完整 `utils` 或业务存储能力。CI 先独立发布轻量子模块到 Maven Local，再编译网关。固定部署包名仍为 `gateway.jar`，`applicationVersion` 纳入 `bootJar` 输入，版本变化必须重新生成 Manifest。目标环境日志、Trace、HTTP/SSE透传与原生IDE启动需要独立验收。
+
+统一 IDEA／服务器 Jar 启动入口为 gateway 成套配置 `gateway.observability.client-span-enabled=true` 和 `otel.instrumentation.reactor-netty-1.0.enabled=false`，修复固定 agent 2.33.1 在 Gateway 分段响应体取消时遗漏出站 CLIENT 终态的问题。应用开关默认关闭；精确 alias 只停用 Reactor Netty 客户端模块，公共 Instrumenter 与 Reactor Context bridge 抑制底层重复 CLIENT，保留 Netty／WebFlux 自动 SERVER。不得改用 `otel.instrumentation.reactor-netty.enabled=false` 或 `otel.instrumentation.netty.enabled=false`，也不得只应用其中一个开关。日常继续使用原生 Spring Boot 绿叶 Run/Debug，受管入口拒绝 VM、环境变量或业务参数覆盖这组配置。
+
+CLIENT 在真实发送前建立并注入 W3C 身份，覆盖响应体写回；正常完成、主动取消和实际上游错误分别记录 success、cancelled、error，HTTP 400–599 也保持 error。正文流的取消单独监听，每次逻辑请求只结束一次；不以外层 Mono 正常结束推定 SSE 已正常完成，不补造旧 trace 的缺失 parent。应用仍不建立 SDK，属性不读取 URL、目标地址、认证头、正文或异常消息。细节、官方选择器依据及回滚合同见 [监控采集与回滚](docs/fleet-observability.md)。
+
+隔离的真实 agent 回归显式使用已有的固定制品，不自动下载，不连接 Nacos、模型或监控后台：
+
+```bash
+FLEET_TEST_AGENT=/secure/opentelemetry-javaagent-2.33.1.jar \
+FLEET_TEST_PRIVACY=/secure/fleet-privacy-extension-0.1.1.jar \
+./gradlew test --tests com.kellen.config.GatewayClientTracingAgentTest --no-daemon
+```
+
+未提供上述两个本机路径时，普通 CI 显式跳过三个子 JVM 用例；它们使用两个真实回环 WebFlux 上下文，对正常、活动取消、上游中断核对实际发送头及 exporter 边界的父子 span。测试跳过、隔离验证通过与目标环境整链验收分别报告。
 
 ## macOS 原生 DNS 运行依赖
 
