@@ -2,7 +2,7 @@
 
 ## 需求与边界
 
-本批版本为 `1.1.6`，精确消费 `com:fleet-observability:0.1.2`。使用 Micrometer Prometheus registry 提供指标，OpenTelemetry API 1.59.0 仅消费统一启动入口注入的 Java agent；应用不建立 SDK，也不依赖重型 utils。Java agent 的指标与日志 exporter 保持关闭（`OTEL_METRICS_EXPORTER=none`、`OTEL_LOGS_EXPORTER=none`），日志继续走共享 ES 配置。生产 classpath 不引入测试 SDK。
+本批版本为 `1.1.7`，精确消费 `com:fleet-observability:0.1.2`。使用 Micrometer Prometheus registry 提供指标，OpenTelemetry API 1.59.0 仅消费统一启动入口注入的 Java agent；应用不建立 SDK，也不依赖重型 utils。Java agent 的指标与日志 exporter 保持关闭（`OTEL_METRICS_EXPORTER=none`、`OTEL_LOGS_EXPORTER=none`），日志继续走共享 ES 配置。生产 classpath 不引入测试 SDK。
 
 指标固定维度为 `application=gateway`、`version`、`environment=github-dev`；部署环境可通过 `observability.environment` 覆盖。版本优先使用显式 `spring.application.version`，以便原生 IDEA Spring Boot Run/Debug 与 OTel 的服务版本一致；未指定时使用 Jar 中可选的 `BuildProperties`，两者缺失或空白时标为 `unknown`。IDE 编译没有生成 build-info 也必须能够启动和采集，不要求先运行 Gradle，不创建虚假的构建信息。业务会话 ID、患者、租户、用户、trace ID、URL、prompt 和正文不得作为标签。
 
@@ -30,10 +30,12 @@ gateway 的公网自身及后端 Actuator 路径继续 404，有效令牌也不�
 
 统一启动入口只对 gateway 成套设置 `gateway.observability.client-span-enabled=true` 和 `otel.instrumentation.reactor-netty-1.0.enabled=false`；应用开关默认关闭，其余服务不增加这些键。不能用 `otel.instrumentation.reactor-netty.enabled=false` 或 `otel.instrumentation.netty.enabled=false` 替换精确客户端选择器，它们会影响入站 SERVER 或传播桥。该行为以官方 2.33.1 [客户端模块选择器](https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/v2.33.1/instrumentation/reactor/reactor-netty/reactor-netty-1.0/javaagent/src/main/java/io/opentelemetry/javaagent/instrumentation/reactornetty/v1_0/ReactorNettyInstrumentationModule.java) 和 [WebFlux 入站模块选择器](https://github.com/open-telemetry/opentelemetry-java-instrumentation/blob/v2.33.1/instrumentation/spring/spring-webflux/spring-webflux-5.0/javaagent/src/main/java/io/opentelemetry/javaagent/instrumentation/spring/webflux/v5_0/server/reactornetty/ReactorNettyInstrumentationModule.java) 的不同 alias 为依据。
 
-公共 `opentelemetry-instrumentation-api:2.25.0` 与 `opentelemetry-reactor-3.1:2.25.0-alpha` 对齐既有 OTel API 1.59.0，分别提供 HTTP 语义抑制与公开 Reactor Context bridge；下层 Netty 重复 CLIENT 被抑制，自动 SERVER 保留。应用仍不建立 SDK、exporter 或全局 Reactor hook。Scope 只用于同步组装，异步订阅通过官方 bridge 传递，不把 Scope 跨线程持有。
+公共 `opentelemetry-instrumentation-api:2.25.0` 与 `opentelemetry-reactor-3.1:2.25.0-alpha` 对齐既有 OTel API 1.59.0，分别提供 HTTP 语义抑制与公开 Reactor Context bridge；下层 Netty 重复 CLIENT 被抑制，自动 SERVER 保留。应用仍不建立 SDK、exporter 或全局 Reactor hook。不可变 Context 通过私有 Object key 存入每个请求自己的 Reactor Context。POST body 回调可能恢复入站 SERVER 上下文，所以 `HttpClientCustomizer.doOnRequest` 在实际请求 Connection 上安装自有 outbound handler，仅在 `HttpRequest` 的同步 write 中打开 Scope，下层 Netty 在正确 HTTP Context 中判断抑制。它不改 header/body，不读写 agent 内部 Channel 属性；写头后自移除，尚未写头就取消时由官方 `Connection.addHandlerLast` 的 onTerminate／池释放机制清理。未知或其他活跃请求的同名 handler 失败关闭，不相互覆盖，不把 Scope 跨线程持有。
 
-真实响应体的取消单独监听，不能只依赖外层 Mono 终态，因为 Gateway 在客户端断连后也可能正常完成写回 Mono。正常完成记录 success；主动取消记录 cancelled；真正上游异常及 HTTP 400–599 记录 error。每个逻辑请求生命周期只结束一次，同一 exchange 的重复 header 处理复用该 span；真实 Retry 路由行为需另外验收。异常仅记录类名，不记录异常正文或事件。属性 getter 不读取 URL、地址、认证头或正文，即使配置 header capture 也得不到这些内容。没有真正 HTTP 发送时不创建 CLIENT；已有上层 HTTP Instrumenter 上下文按 shouldStart 合同抑制，不结束其他调用者的 span。
+真实响应体的取消单独监听，不能只依赖外层 Mono 终态，因为 Gateway 在客户端断连后也可能正常完成写回 Mono。正常完成记录 success；主动取消记录 cancelled；真正上游异常及 HTTP 400–599 记录 error；CLIENT HTTP 码只来自真实上游响应，写头前取消不回填网关默认 200。每个逻辑请求生命周期只结束一次，同一 exchange 的重复 header 处理复用该 span；真实 Retry 路由行为需另外验收。异常仅记录类名，不记录异常正文或事件。属性 getter 不读取 URL、地址、认证头或正文，即使配置 header capture 也得不到这些内容。发送边界先拒绝 `isAlreadyRouted` 的本地完成／缓存短路，header helper 只读取已启动状态、不补建 CLIENT。NettyRoutingFilter 自己会先标记 alreadyRouted 再调用 header filter，因此不能在后者简单跳过所有已路由请求。已有上层 HTTP Instrumenter 上下文按 shouldStart 合同抑制，不结束其他调用者的 span。
 
-`GatewayClientTracingFilterTest` 覆盖终态、重入抑制、4xx/5xx、正文取消和真实错误优先级。`GatewayClientTracingAgentTest` 用两个真实 Spring WebFlux 随机端口上下文、真实 Gateway、固定 agent 和 exporter 边界捕获，验证正常/活动取消/上游中断均为一条 trace、两个自动 SERVER 与唯一网关 CLIENT，实际发送头、已导出 CLIENT 与两侧 parentSpanId 一致。普通 CI 没有私有 agent 制品时显式跳过这三项；本机提供 `FLEET_TEST_AGENT`、`FLEET_TEST_PRIVACY` 的本机文件路径后运行测试，不使用真实 Nacos、模型或监控后台。
+`GatewayClientTracingFilterTest` 覆盖终态、重入抑制、4xx/5xx、正文取消、真实错误优先级及 alreadyRouted 本地响应反例。`GatewayClientTracingAgentTest` 用两个真实 Spring WebFlux 随机端口上下文、真实 Gateway、固定 agent 和 exporter 边界捕获，使用带 JSON body 的真实 POST 和完整 Fleet HTTP 日志链，验证正常/活动取消/上游中断均为一条 trace、两个自动 SERVER 与唯一网关 CLIENT，实际发送头、已导出 CLIENT 与两侧 parentSpanId 一致；还验证同池六次、十二次并发、写头前取消后无上游调用且 handler 清理、随后请求正常，以及字节与认证头透传。本仓 CI 在独立步骤显式准备已校验的公开制品并执行四项子 JVM 测试；未提供制品的本机或外部 CI 明确跳过。本机提供 `FLEET_TEST_AGENT`、`FLEET_TEST_PRIVACY` 的本机文件路径后运行测试，不使用真实 Nacos、模型或监控后台。
 
 回滚时关闭应用开关并恢复统一入口原有客户端自动采集选择器，或成套回退原制品与原运行配置；不得仅停用自动客户端模块而仍使用旧应用。默认关闭的源码测试、隔离真实 agent 验证和目标九服务的实际整链验收分别记录，不能互相替代。
+
+当前实际整链验收目标为 HTTP/1.1 与 Dubbo Tri。Git 外 H2C 试验仅证明请求 stream 隔离及 header 身份；固定 agent／Reactor Netty 的 H2 后端自动 SERVER 未产生，不宣称 H2 完整链路已验收。

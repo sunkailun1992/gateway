@@ -27,6 +27,7 @@ class GatewayClientTracingAgentTest {
     @Test void normalBodyKeepsOneClientAndBothAutomaticServers() throws Exception { verify("normal", "success"); }
     @Test void activeCancelKeepsOneClientAndCancelsActualUpstream() throws Exception { verify("cancel", "cancelled"); }
     @Test void upstreamBodyFailureRemainsErrorAndKeepsParents() throws Exception { verify("error", "error"); }
+    @Test void postReuseConcurrencyAndCancelBeforeHeadersStayIsolated() throws Exception { verify("lifecycle", "success"); }
 
     private void verify(String mode, String outcome) throws Exception {
         String agentPath = System.getenv("FLEET_TEST_AGENT");
@@ -63,10 +64,12 @@ class GatewayClientTracingAgentTest {
             assertThat(log).contains("EXIT", "CLIENT_CLOSED");
             if (mode.equals("cancel")) assertThat(log).contains("UPSTREAM_CANCEL=true", "CLIENT_READ=20");
             if (mode.equals("error")) assertThat(log).contains("CLIENT_ERROR=true");
+            assertThat(log).contains("REQUEST_BYTES_PRESERVED=true");
+            List<String[]> spans = Files.readAllLines(capture).stream().map(line -> line.split("\t", -1)).toList();
+            if (mode.equals("lifecycle")) { verifyLifecycle(log, spans); return; }
             String[] gateway = match(log, "GATEWAY_SERVER=([0-9a-f]{32}):([0-9a-f]{16})");
             String[] upstream = match(log, "UPSTREAM_SERVER=([0-9a-f]{32}):([0-9a-f]{16})");
             String[] propagated = match(log, "UPSTREAM_PARENT=00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}");
-            List<String[]> spans = Files.readAllLines(capture).stream().map(line -> line.split("\t", -1)).toList();
             assertThat(spans).hasSize(4);
             assertThat(spans.stream().map(span -> span[0]).distinct().toList()).containsExactly(gateway[0]);
             assertThat(upstream[0]).isEqualTo(gateway[0]);
@@ -90,6 +93,45 @@ class GatewayClientTracingAgentTest {
         } finally {
             if (child.isAlive()) { child.destroyForcibly(); child.waitFor(10, TimeUnit.SECONDS); }
         }
+    }
+
+    private static void verifyLifecycle(String log, List<String[]> spans) {
+        assertThat(log).contains("POOLED_CALLS=6", "CONCURRENT_CALLS=12", "EARLY_CONTEXT_CLEANED=true",
+                "EARLY_UPSTREAM_CALLS=0", "FOLLOWUP_SUCCESS=true", "EARLY_CONNECTION_TERMINATED=true", "EARLY_INBOUND_SIGNAL=cancel");
+        var owned = spans.stream().filter(span -> !span[5].isEmpty()).toList();
+        assertThat(owned).hasSize(20);
+        assertThat(owned.stream().filter(span -> span[5].equals("success")).toList()).hasSize(19);
+        var cancelled = owned.stream().filter(span -> span[5].equals("cancelled")).toList();
+        assertThat(cancelled).hasSize(1);
+        assertThat(spans.stream().map(span -> span[0]).distinct().count()).isEqualTo(20L);
+        var propagated = Pattern.compile("UPSTREAM_PARENT=00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}").matcher(log);
+        int received = 0;
+        while (propagated.find()) {
+            received++;
+            String trace = propagated.group(1), parent = propagated.group(2);
+            var inTrace = spans.stream().filter(span -> span[0].equals(trace)).toList();
+            assertThat(inTrace).hasSize(4);
+            String[] client = inTrace.stream().filter(span -> span[1].equals(parent)).findFirst().orElseThrow();
+            assertThat(client[3]).isEqualTo("CLIENT");
+            assertThat(client[5]).isEqualTo("success");
+            assertThat(client[4]).isEqualTo("UNSET");
+            assertThat(inTrace.stream().filter(span -> span[3].equals("SERVER")).toList()).hasSize(2);
+            assertThat(inTrace.stream().filter(span -> span[3].equals("CLIENT")).toList()).hasSize(2);
+            String[] gateway = inTrace.stream().filter(span -> span[1].equals(client[2])).findFirst().orElseThrow();
+            assertThat(gateway[3]).isEqualTo("SERVER");
+            assertThat(inTrace.stream().filter(span -> span[3].equals("SERVER") && span[2].equals(client[1])).toList()).hasSize(1);
+        }
+        assertThat(received).isEqualTo(19);
+        String[] early = cancelled.get(0);
+        assertThat(early[4]).isEqualTo("UNSET");
+        assertThat(spans.stream().filter(span -> span[0].equals(early[0]) && span[3].equals("SERVER")).toList()).hasSize(1);
+        var channels = Pattern.compile("REQUEST_CHANNEL=([0-9a-f]+)").matcher(log);
+        var observed = new java.util.ArrayList<String>();
+        while (channels.find()) observed.add(channels.group(1));
+        assertThat(observed).hasSize(20);
+        assertThat(observed.subList(0, 6).stream().distinct().count()).isEqualTo(1L);
+        assertThat(observed.stream().distinct().count()).isLessThan(19L);
+        System.out.println("GATEWAY_TRACE_CONTRACT={\"case\":\"lifecycle\",\"successful_requests\":19,\"cancelled_before_headers\":1,\"pooled_requests\":6,\"concurrent_requests\":12,\"cross_trace_contamination\":0,\"request_response_bytes_preserved\":true,\"early_upstream_calls\":0,\"handler_cleaned\":true,\"exit_code\":0}");
     }
 
     private static String[] match(String text, String expression) {

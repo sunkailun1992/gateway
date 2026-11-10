@@ -23,6 +23,7 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
 import org.springframework.http.HttpStatus;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import io.opentelemetry.instrumentation.api.instrumenter.Instrumenter;
 import io.opentelemetry.instrumentation.api.instrumenter.SpanKindExtractor;
@@ -35,6 +36,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR;
+import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.setAlreadyRouted;
 
 /** 验证真实发送前注入与整段写回终态，不记录动态目标、认证头或正文。 */
 class GatewayClientTracingFilterTest {
@@ -63,11 +65,12 @@ class GatewayClientTracingFilterTest {
         Span server = GlobalOpenTelemetry.getTracer("fixture").spanBuilder("fixture.server")
                 .setSpanKind(SpanKind.SERVER).startSpan();
         try (Scope ignored = server.makeCurrent()) {
-            filter.filter(exchange, current -> {
+            observe(current -> {
+                setAlreadyRouted(current);
                 HttpHeaders headers = filter.filter(current.getRequest().getHeaders(), current);
                 assertThat(headers.getFirst("traceparent")).contains(server.getSpanContext().getTraceId());
                 assertThat(headers.getFirst(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer synthetic-secret");
-                current.getResponse().setRawStatusCode(200);
+                upstreamStatus(current, HttpStatus.OK);
                 return Mono.empty();
             }).block();
         } finally { server.end(); }
@@ -80,7 +83,7 @@ class GatewayClientTracingFilterTest {
 
     @Test
     void cancelAfterHeadersEndsExactlyOnceWithoutReportingSuccessOrError() {
-        var disposable = filter.filter(exchange, current -> {
+        var disposable = observe(current -> {
             filter.filter(current.getRequest().getHeaders(), current);
             return Mono.never();
         }).subscribe();
@@ -93,8 +96,21 @@ class GatewayClientTracingFilterTest {
     }
 
     @Test
+    void cancellationBeforeUpstreamHeadersDoesNotInventAnHttpResponseStatus() {
+        var disposable = observe(current -> {
+            filter.filter(current.getRequest().getHeaders(), current);
+            current.getResponse().setStatusCode(HttpStatus.OK);
+            return Mono.never();
+        }).subscribe();
+        disposable.dispose();
+        assertThat(clientSpans()).hasSize(1);
+        assertThat(clientSpans().get(0).getAttributes().get(AttributeKey.longKey("http.response.status_code"))).isNull();
+        assertThat(clientSpans().get(0).getAttributes().get(AttributeKey.stringKey("business.outcome"))).isEqualTo("cancelled");
+    }
+
+    @Test
     void transportErrorEndsOnceAndKeepsOnlyExceptionClass() {
-        assertThatThrownBy(() -> filter.filter(exchange, current -> {
+        assertThatThrownBy(() -> observe(current -> {
             filter.filter(current.getRequest().getHeaders(), current);
             return Mono.error(new IllegalStateException("Bearer synthetic-private-body"));
         }).block()).isInstanceOf(IllegalStateException.class);
@@ -113,15 +129,26 @@ class GatewayClientTracingFilterTest {
     }
 
     @Test
+    void alreadyRoutedLocalResponseNeverCreatesAClientEvenWithAnHttpTarget() {
+        setAlreadyRouted(exchange);
+        exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
+        filter.filter(exchange, current -> filter.gatewayClientSendingBoundary().filter(current, routed -> {
+            filter.filter(routed.getRequest().getHeaders(), routed);
+            return Mono.empty();
+        })).block();
+        assertThat(clientSpans()).isEmpty();
+    }
+
+    @Test
     void unmanagedLaunchDefaultsToExistingAutomaticInstrumentation() {
         new ApplicationContextRunner().withUserConfiguration(GatewayClientTracingFilter.class)
                 .run(context -> assertThat(context).doesNotHaveBean(GatewayClientTracingFilter.class)
-                        .doesNotHaveBean("gatewayClientSendingBoundary"));
+                        .doesNotHaveBean("gatewayClientSendingBoundary").doesNotHaveBean("gatewayClientRequestContextWriter"));
     }
 
     @Test
     void cancelledBodyIsCancelledEvenWhenGatewayWriteMonoCompletesNormally() {
-        filter.filter(exchange, current -> {
+        observe(current -> {
             filter.filter(current.getRequest().getHeaders(), current);
             current.getResponse().setStatusCode(HttpStatus.OK);
             var writing = current.getResponse().writeWith(Flux.never()).subscribe();
@@ -134,7 +161,7 @@ class GatewayClientTracingFilterTest {
 
     @Test
     void actualUpstreamErrorIsNotMaskedByResponseBodyCleanupCancellation() {
-        assertThatThrownBy(() -> filter.filter(exchange, current -> {
+        assertThatThrownBy(() -> observe(current -> {
             filter.filter(current.getRequest().getHeaders(), current);
             var writing = current.getResponse().writeWith(Flux.never()).subscribe();
             writing.dispose();
@@ -146,11 +173,11 @@ class GatewayClientTracingFilterTest {
 
     @Test
     void repeatedHeaderFilteringUsesOneOwnedSpanAndHttpFailureStaysError() {
-        filter.filter(exchange, current -> {
+        observe(current -> {
             var first = filter.filter(current.getRequest().getHeaders(), current);
             var second = filter.filter(first, current);
             assertThat(first.getFirst("traceparent")).isEqualTo(second.getFirst("traceparent"));
-            current.getResponse().setStatusCode(HttpStatus.BAD_GATEWAY);
+            upstreamStatus(current, HttpStatus.BAD_GATEWAY);
             return Mono.empty();
         }).block();
         assertThat(clientSpans()).hasSize(1);
@@ -161,9 +188,9 @@ class GatewayClientTracingFilterTest {
     void httpClientFourHundredResponsesAreErrorsRatherThanSuccessfulBusinessCalls() {
         for (HttpStatus status : List.of(HttpStatus.NOT_FOUND, HttpStatus.TOO_MANY_REQUESTS)) {
             exporter.reset();
-            filter.filter(exchange, current -> {
+            observe(current -> {
                 filter.filter(current.getRequest().getHeaders(), current);
-                current.getResponse().setStatusCode(status);
+                upstreamStatus(current, status);
                 return Mono.empty();
             }).block();
             assertThat(clientSpans()).hasSize(1);
@@ -188,7 +215,7 @@ class GatewayClientTracingFilterTest {
                 .buildInstrumenter(SpanKindExtractor.alwaysClient());
         Context parent = outer.start(Context.root(), "GET");
         try (Scope ignored = parent.makeCurrent()) {
-            filter.filter(exchange, current -> {
+            observe(current -> {
                 assertThat(filter.filter(current.getRequest().getHeaders(), current).getFirst("traceparent"))
                         .contains(Span.fromContext(parent).getSpanContext().getSpanId());
                 return Mono.empty();
@@ -198,6 +225,17 @@ class GatewayClientTracingFilterTest {
         outer.end(parent, "GET", 200, null);
         assertThat(clientSpans()).hasSize(1);
         assertThat(clientSpans().get(0).getName()).isEqualTo("outer");
+    }
+
+    private static void upstreamStatus(org.springframework.web.server.ServerWebExchange current, HttpStatus status) {
+        current.getResponse().setStatusCode(status);
+        var response = org.mockito.Mockito.mock(reactor.netty.http.client.HttpClientResponse.class);
+        org.mockito.Mockito.when(response.status()).thenReturn(io.netty.handler.codec.http.HttpResponseStatus.valueOf(status.value()));
+        current.getAttributes().put(org.springframework.cloud.gateway.support.ServerWebExchangeUtils.CLIENT_RESPONSE_ATTR, response);
+    }
+
+    private Mono<Void> observe(GatewayFilterChain chain) {
+        return filter.filter(exchange, current -> filter.gatewayClientSendingBoundary().filter(current, chain));
     }
 
     private List<SpanData> clientSpans() {

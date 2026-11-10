@@ -47,7 +47,7 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           repository: sunkailun1992/utils
-          ref: main
+          ref: b5a284397bdbfe73bab72ee81855c8e9bf2de5e4 # fleet-observability 0.1.2 / privacy extension 0.1.1
           path: .ci-utils
 
       - name: Publish lightweight observability to Maven Local
@@ -58,6 +58,17 @@ jobs:
         working-directory: .ci-rpc-api
         run: ./gradlew -q publishToMavenLocal
 
+      - name: Prepare pinned public agent and privacy extension
+        working-directory: .ci-utils
+        run: |
+          ./gradlew -p ops/github-dev/observability/agent-extension runtimeChecksums --no-daemon
+          mkdir -p "$RUNNER_TEMP/gateway-agent"
+          cp ops/github-dev/observability/agent-extension/build/runtime/opentelemetry-javaagent-2.33.1.jar "$RUNNER_TEMP/gateway-agent/"
+          cp ops/github-dev/observability/agent-extension/build/runtime/fleet-privacy-extension-0.1.1.jar "$RUNNER_TEMP/gateway-agent/"
+          cp ops/github-dev/observability/agent-extension/build/runtime/SHA256SUMS "$RUNNER_TEMP/gateway-agent/"
+          printf '%s  %s\n' e43a270df53c6f423e0ab157be9c27ccc01d5dc3232e162fe54777573db2f149 "$RUNNER_TEMP/gateway-agent/opentelemetry-javaagent-2.33.1.jar" | sha256sum --check
+          (cd "$RUNNER_TEMP/gateway-agent" && sha256sum --check SHA256SUMS)
+
       - name: Prepare scripts
         run: chmod +x gradlew scripts/check-secrets.sh
 
@@ -65,6 +76,9 @@ jobs:
         run: ./gradlew -q compileJava
 
       - name: Test
+        env:
+          FLEET_TEST_AGENT: ${{ runner.temp }}/gateway-agent/opentelemetry-javaagent-2.33.1.jar
+          FLEET_TEST_PRIVACY: ${{ runner.temp }}/gateway-agent/fleet-privacy-extension-0.1.1.jar
         run: ./gradlew test
 
       - name: Secret warning scan

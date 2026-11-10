@@ -15,8 +15,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.filter.headers.HttpHeadersFilter;
+import org.springframework.cloud.gateway.config.HttpClientCustomizer;
 import org.springframework.core.Ordered;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.server.reactive.ServerHttpResponseDecorator;
@@ -27,6 +29,11 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.SignalType;
 import reactor.netty.http.client.HttpClientResponse;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelOutboundHandlerAdapter;
+import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.util.ReferenceCountUtil;
 
 import java.net.URI;
 import java.util.Set;
@@ -35,6 +42,7 @@ import java.util.concurrent.CancellationException;
 
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.CLIENT_RESPONSE_ATTR;
 import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.GATEWAY_REQUEST_URL_ATTR;
+import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.isAlreadyRouted;
 
 /**
  * 管理真实 HTTP 发送至响应体写回的出站 span 生命周期。
@@ -48,6 +56,8 @@ import static org.springframework.cloud.gateway.support.ServerWebExchangeUtils.G
 @ConditionalOnProperty(prefix = "gateway.observability", name = "client-span-enabled", havingValue = "true")
 public final class GatewayClientTracingFilter implements GlobalFilter, HttpHeadersFilter, Ordered {
     private static final String STATE = GatewayClientTracingFilter.class.getName() + ".state";
+    private static final Object REQUEST_STATE = new Object();
+    private static final String WRITE_HANDLER = GatewayClientTracingFilter.class.getName() + ".request-context";
     private static final Set<String> METHODS = Set.of("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "CONNECT", "TRACE");
     private final Instrumenter<String, Integer> instrumenter = Instrumenter.<String, Integer>builder(
                     GlobalOpenTelemetry.get(), "com.kellen.gateway.http", method -> "gateway.http.client")
@@ -58,6 +68,55 @@ public final class GatewayClientTracingFilter implements GlobalFilter, HttpHeade
     @Bean
     GlobalFilter gatewayClientSendingBoundary() { return new SendingBoundary(); }
 
+    /**
+     * POST 请求头的真正 write 可能由入站 body 回调触发，不能只依赖组装/连接时的 Scope。
+     * 每个请求从 Reactor Context 取得自己的状态，只包住同步 HttpRequest write。
+     */
+    @Bean
+    @Order(0)
+    HttpClientCustomizer gatewayClientRequestContextWriter() {
+        return httpClient -> httpClient.doOnRequest((request, connection) -> {
+            ExchangeTrace state = request.currentContextView().getOrDefault(REQUEST_STATE, null);
+            if (state == null) return;
+            Context client = state.writingContext();
+            var existing = connection.channel().pipeline().get(WRITE_HANDLER);
+            if (existing != null) {
+                if (existing instanceof RequestContextWriter writer && writer.state == state) return;
+                // 不替换其他请求或未知用户 handler；池/stream 归属异常时失败关闭。
+                throw new IllegalStateException("Gateway request context handler conflict");
+            }
+            // 必须使用 Connection API：它会在请求终止/池释放时安全移除尚未写头的 handler。
+            // 使用 Reactor Netty 提供的请求 Connection，不把 handler 主动挂到其 parent。
+            connection.addHandlerLast(WRITE_HANDLER, new RequestContextWriter(state, client));
+        });
+    }
+
+    private static final class RequestContextWriter extends ChannelOutboundHandlerAdapter {
+        private final ExchangeTrace state;
+        private final Context client;
+
+        private RequestContextWriter(ExchangeTrace state, Context client) {
+            this.state = state;
+            this.client = client;
+        }
+
+        @Override
+        public void write(ChannelHandlerContext context, Object message, ChannelPromise promise) {
+            if (!(message instanceof HttpRequest)) {
+                context.write(message, promise);
+                return;
+            }
+            context.pipeline().remove(this);
+            try { state.writingContext(); }
+            catch (IllegalStateException failure) {
+                ReferenceCountUtil.release(message);
+                promise.tryFailure(failure);
+                return;
+            }
+            try (Scope ignored = client.makeCurrent()) { context.write(message, promise); }
+        }
+    }
+
     private final class SendingBoundary implements GlobalFilter, Ordered {
         @Override
         public int getOrder() { return Integer.MAX_VALUE - 1; }
@@ -67,12 +126,12 @@ public final class GatewayClientTracingFilter implements GlobalFilter, HttpHeade
             return Mono.defer(() -> {
                 ExchangeTrace state = exchange.getAttribute(STATE);
                 URI target = exchange.getAttribute(GATEWAY_REQUEST_URL_ATTR);
-                if (state == null || !http(target)) return chain.filter(exchange);
+                if (state == null || isAlreadyRouted(exchange) || !http(target)) return chain.filter(exchange);
                 Context client = state.start(exchange.getRequest().getMethod().name());
                 // 使用公开 Reactor bridge 同时覆盖订阅与异步回调，Scope 只在当前线程同步使用。
                 return ContextPropagationOperator.runWithContext(Mono.defer(() -> {
                     try (Scope ignored = client.makeCurrent()) { return chain.filter(exchange); }
-                }), client);
+                }), client).contextWrite(context -> context.put(REQUEST_STATE, state));
             });
         }
     }
@@ -115,7 +174,10 @@ public final class GatewayClientTracingFilter implements GlobalFilter, HttpHeade
             return input;
         }
         // 此官方扩展点位于实际 NettyRoutingFilter 发请求之前，且已完成 lb:// 解析。
-        Context client = state.start(exchange.getRequest().getMethod().name());
+        // NettyRoutingFilter 此时已设置 alreadyRouted；只为实际发送边界已启动的状态注入，
+        // 不能由 header helper 给本地响应/缓存短路补建 CLIENT。
+        Context client = state.sendingContext();
+        if (client == null) return input;
         HttpHeaders output = new HttpHeaders();
         output.addAll(input);
         output.remove("traceparent");
@@ -176,13 +238,21 @@ public final class GatewayClientTracingFilter implements GlobalFilter, HttpHeade
 
         private synchronized void cancel() { cancelled = true; }
 
+        private synchronized Context sendingContext() { return client; }
+
+        private synchronized Context writingContext() {
+            if (finished) throw new CancellationException("Gateway exchange already terminated");
+            if (client == null) throw new IllegalStateException("Gateway sending boundary missing");
+            return client;
+        }
+
         private synchronized void finish(ServerWebExchange exchange, SignalType signal) {
             if (finished) return;
             finished = true;
             if (span == null) return;
             HttpClientResponse response = exchange.getAttribute(CLIENT_RESPONSE_ATTR);
-            int status = response != null ? response.status().code()
-                    : exchange.getResponse().getStatusCode() != null ? exchange.getResponse().getStatusCode().value() : 0;
+            // 下游响应对象可能默认 200；没有真正收到上游响应头时，CLIENT 状态码仍未知。
+            int status = response == null ? 0 : response.status().code();
             if (status >= 100 && status <= 599) span.setAttribute("http.response.status_code", (long) status);
             String outcome = errorClass != null || status >= 400 ? "error"
                     : signal == SignalType.CANCEL || cancelled ? "cancelled" : "success";
