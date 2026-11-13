@@ -64,6 +64,7 @@ class GatewayClientTracingFilterTest {
     void completeInjectsRealClientUnderInboundParentAndNeverCollectsPrivateMetadata() {
         Span server = GlobalOpenTelemetry.getTracer("fixture").spanBuilder("fixture.server")
                 .setSpanKind(SpanKind.SERVER).startSpan();
+        exchange.getAttributes().put(CanaryRoutingFilter.ROUTE_MODE, "canary");
         try (Scope ignored = server.makeCurrent()) {
             observe(current -> {
                 setAlreadyRouted(current);
@@ -77,6 +78,9 @@ class GatewayClientTracingFilterTest {
         SpanData client = clientSpans().get(0);
         assertThat(client.getParentSpanId()).isEqualTo(server.getSpanContext().getSpanId());
         assertThat(client.getAttributes().get(AttributeKey.stringKey("business.outcome"))).isEqualTo("success");
+        assertThat(client.getAttributes().get(AttributeKey.stringKey("traffic.route.mode"))).isEqualTo("canary");
+        assertThat(client.getAttributes().get(AttributeKey.stringKey("traffic.route.decision"))).isEqualTo("selected");
+        assertThat(client.getAttributes().get(AttributeKey.stringKey("traffic.route.hop"))).isEqualTo("gateway");
         assertThat(client.toString()).doesNotContain("unlisted.example", "private-record", "synthetic-secret", "secret=");
         assertThat(clientSpans()).hasSize(1);
     }

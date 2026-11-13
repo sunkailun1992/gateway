@@ -1,7 +1,9 @@
 package com.kellen.config;
 
+import com.kellen.traffic.CanaryGrant;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -10,27 +12,26 @@ import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
-/**
- * 网关流量治理请求头标准化过滤器。
- *
- * <p>公网入口只信任发布版本、泳道和灰度 tag 的合法短值；权重默认不接受客户端头，
- * 比例发布由 Nacos/Dubbo 治理规则控制。</p>
- */
+/** 在路由匹配前移除客户端提供的流量治理头。 */
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE + 10)
 public class TrafficGovernanceHeaderFilter implements WebFilter {
 
-    /**
-     * Dubbo Triple/HTTP tag 头。
-     */
-    private static final String DUBBO_TAG_HEADER = "dubbo-tag";
+    static final String CANARY_GRANTS_ATTRIBUTE =
+            TrafficGovernanceHeaderFilter.class.getName() + ".canaryGrants";
 
-    /**
-     * 流量治理配置。
-     */
+    private static final List<String> GRAY_HEADERS = List.of(
+            "X-Canary-Tag", "X-Canary-Weight", "canary.tag", "traffic.weight",
+            "dubbo-tag", "dubbo.tag", "dubbo.force.tag", CanaryGrant.HEADER);
+
+    private static final List<String> BUSINESS_HEADERS = List.of(
+            HttpHeaders.AUTHORIZATION, HttpHeaders.COOKIE, "X-Tenant-Id", "tenant-id", "tenantId",
+            "traceparent", "tracestate", "baggage", "X-Request-Id", "X-Trace-Id");
+
     private final GatewayTrafficGovernanceProperties properties;
 
     public TrafficGovernanceHeaderFilter(GatewayTrafficGovernanceProperties properties) {
@@ -39,110 +40,51 @@ public class TrafficGovernanceHeaderFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        if (properties == null || !properties.isEnabled()) {
-            return chain.filter(exchange);
-        }
         GatewayTrafficGovernanceProperties.Request config = properties.getRequest();
         ServerHttpRequest request = exchange.getRequest();
-        String releaseVersion = sanitize(firstNotBlank(
-                request.getHeaders().getFirst(config.getReleaseVersionHeader()),
-                config.getDefaultReleaseVersion()), config);
-        String lane = sanitize(firstNotBlank(
-                request.getHeaders().getFirst(config.getLaneHeader()),
-                config.getDefaultLane()), config);
-        String resolvedCanaryTag = sanitize(request.getHeaders().getFirst(config.getCanaryTagHeader()), config);
-        if (!StringUtils.hasText(resolvedCanaryTag) && config.isTagFallbackToReleaseVersion()) {
-            resolvedCanaryTag = releaseVersion;
+        List<String> grants = request.getHeaders().get(CanaryGrant.HEADER);
+        if (grants != null) {
+            exchange.getAttributes().put(CANARY_GRANTS_ATTRIBUTE, List.copyOf(grants));
         }
-        String resolvedCanaryWeight = null;
-        if (config.isAllowClientWeightHeader()) {
-            resolvedCanaryWeight = sanitizeWeight(request.getHeaders().getFirst(config.getCanaryWeightHeader()));
-        }
-        String canaryTag = resolvedCanaryTag;
-        String canaryWeight = resolvedCanaryWeight;
 
         ServerHttpRequest mutatedRequest = request.mutate().headers(headers -> {
-            setOrRemove(headers, config.getReleaseVersionHeader(), releaseVersion);
-            setOrRemove(headers, config.getLaneHeader(), lane);
-            setOrRemove(headers, config.getCanaryTagHeader(), canaryTag);
-            setOrRemove(headers, DUBBO_TAG_HEADER, canaryTag);
-            setOrRemove(headers, config.getCanaryWeightHeader(), canaryWeight);
+            GRAY_HEADERS.forEach(headers::remove);
+            headers.remove("X-Release-Version");
+            headers.remove("X-Traffic-Lane");
+            headers.remove("release.version");
+            headers.remove("traffic.lane");
+            removeConfiguredHeader(headers, config.getReleaseVersionHeader());
+            removeConfiguredHeader(headers, config.getLaneHeader());
+            removeConfiguredHeader(headers, config.getCanaryTagHeader());
+            removeConfiguredHeader(headers, config.getCanaryWeightHeader());
+            if (grants == null && properties.isEnabled()) {
+                setDefault(headers, config.getReleaseVersionHeader(), config.getDefaultReleaseVersion(), config);
+                setDefault(headers, config.getLaneHeader(), config.getDefaultLane(), config);
+            }
         }).build();
         return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
-    /**
-     * 写入或删除请求头。
-     *
-     * @param headers 请求头集合
-     * @param name    请求头名
-     * @param value   请求头值
-     */
-    private void setOrRemove(org.springframework.http.HttpHeaders headers, String name, String value) {
-        if (!StringUtils.hasText(name)) {
+    private void removeConfiguredHeader(HttpHeaders headers, String name) {
+        if (StringUtils.hasText(name) && BUSINESS_HEADERS.stream().noneMatch(name::equalsIgnoreCase)) {
+            headers.remove(name);
+        }
+    }
+
+    private void setDefault(HttpHeaders headers, String name, String value,
+                            GatewayTrafficGovernanceProperties.Request config) {
+        if (!StringUtils.hasText(name) || !StringUtils.hasText(value)
+                || BUSINESS_HEADERS.stream().anyMatch(name::equalsIgnoreCase)
+                || GRAY_HEADERS.stream().anyMatch(name::equalsIgnoreCase)) {
             return;
         }
-        headers.remove(name);
-        if (StringUtils.hasText(value)) {
-            headers.set(name, value);
-        }
-    }
-
-    /**
-     * 过滤治理字段。
-     *
-     * @param value  原始值
-     * @param config 请求侧配置
-     * @return 合法值，非法时返回 null
-     */
-    private String sanitize(String value, GatewayTrafficGovernanceProperties.Request config) {
-        String normalized = trimToNull(value);
-        if (normalized == null) {
-            return null;
-        }
+        String normalized = value.trim();
         try {
-            return Pattern.matches(config.getAllowedValuePattern(), normalized) ? normalized : null;
-        } catch (PatternSyntaxException ex) {
-            return null;
+            if (Pattern.matches(config.getAllowedValuePattern(), normalized)) {
+                headers.set(name, normalized);
+            }
+        } catch (PatternSyntaxException ignored) {
+            // 配置格式错误时忽略默认值。
         }
-    }
-
-    /**
-     * 过滤权重字段。
-     *
-     * @param value 原始权重
-     * @return 合法权重，非法时返回 null
-     */
-    private String sanitizeWeight(String value) {
-        String normalized = trimToNull(value);
-        if (normalized == null || !normalized.chars().allMatch(Character::isDigit)) {
-            return null;
-        }
-        int weight = Integer.parseInt(normalized);
-        return weight >= 0 && weight <= 100 ? normalized : null;
-    }
-
-    /**
-     * 返回第一个非空字符串。
-     *
-     * @param first  第一个候选值
-     * @param second 第二个候选值
-     * @return 第一个非空字符串
-     */
-    private String firstNotBlank(String first, String second) {
-        return StringUtils.hasText(first) ? first : second;
-    }
-
-    /**
-     * 去掉空白并把空串转为 null。
-     *
-     * @param value 原始值
-     * @return 非空字符串或 null
-     */
-    private String trimToNull(String value) {
-        if (!StringUtils.hasText(value)) {
-            return null;
-        }
-        return value.trim();
     }
 }

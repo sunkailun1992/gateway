@@ -3,6 +3,9 @@ package com.kellen.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 /**
  * 网关流量治理配置。
  *
@@ -22,6 +25,8 @@ public class GatewayTrafficGovernanceProperties {
      */
     private Request request = new Request();
 
+    private Canary canary = new Canary();
+
     public boolean isEnabled() {
         return enabled;
     }
@@ -36,6 +41,46 @@ public class GatewayTrafficGovernanceProperties {
 
     public void setRequest(Request request) {
         this.request = request;
+    }
+
+    public Canary getCanary() {
+        return canary;
+    }
+
+    public void setCanary(Canary canary) {
+        this.canary = canary;
+    }
+
+    /** 稳定服务与灰度服务使用各自的注册名。 */
+    public static class Canary {
+
+        private boolean enabled;
+        private String signingKey;
+        private Map<String, Map<String, String>> routes = new LinkedHashMap<>();
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getSigningKey() {
+            return signingKey;
+        }
+
+        public void setSigningKey(String signingKey) {
+            this.signingKey = signingKey;
+        }
+
+        public Map<String, Map<String, String>> getRoutes() {
+            return routes;
+        }
+
+        public void setRoutes(Map<String, Map<String, String>> routes) {
+            this.routes = routes;
+        }
     }
 
     /**

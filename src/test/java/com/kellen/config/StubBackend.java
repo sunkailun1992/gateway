@@ -1,6 +1,7 @@
 package com.kellen.config;
 
 import com.sun.net.httpserver.HttpServer;
+import org.springframework.http.HttpHeaders;
 import org.springframework.test.context.DynamicPropertyRegistry;
 
 import java.io.IOException;
@@ -21,6 +22,7 @@ final class StubBackend {
 
     private final HttpServer server;
 
+    private final List<ReceivedRequest> receivedRequests = new CopyOnWriteArrayList<>();
     private final List<String> receivedPaths = new CopyOnWriteArrayList<>();
     private final List<String> receivedAuthorizations = new CopyOnWriteArrayList<>();
     private volatile Map<String, List<String>> responseHeaders = Map.of();
@@ -36,6 +38,10 @@ final class StubBackend {
             server.createContext("/", exchange -> {
                 String path = exchange.getRequestURI().getRawPath();
                 backend.receivedPaths.add(path);
+                HttpHeaders headers = new HttpHeaders();
+                exchange.getRequestHeaders().forEach(headers::addAll);
+                backend.receivedRequests.add(new ReceivedRequest(exchange.getRequestURI().toString(),
+                        HttpHeaders.readOnlyHttpHeaders(headers)));
                 String authorization = exchange.getRequestHeaders().getFirst("Authorization");
                 if (authorization != null) backend.receivedAuthorizations.add(authorization);
                 backend.responseHeaders.forEach((name, values) -> exchange.getResponseHeaders().put(name, values));
@@ -67,7 +73,19 @@ final class StubBackend {
         return receivedPaths;
     }
 
+    String uri() {
+        return "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    List<ReceivedRequest> receivedRequests() {
+        return receivedRequests;
+    }
+
+    record ReceivedRequest(String target, HttpHeaders headers) {
+    }
+
     void clear() {
+        receivedRequests.clear();
         receivedPaths.clear();
         receivedAuthorizations.clear();
         responseHeaders = Map.of();

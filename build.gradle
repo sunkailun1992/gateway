@@ -10,7 +10,7 @@ plugins {
  * 项目基础信息
  */
 group = 'com.gateway'
-version = '1.1.7'
+version = '1.1.8'
 description = 'gateway'
 
 def privateMavenUrl = providers.gradleProperty('privateMavenUrl')
@@ -27,7 +27,7 @@ ext {
     nacosClientVersion = '3.2.2'
     springdocVersion = '3.0.3'
     rpcApiVersion = '1.0.7'
-    fleetObservabilityVersion = '0.1.2'
+    fleetObservabilityVersion = '0.1.3'
 }
 /**
  * 编码规则

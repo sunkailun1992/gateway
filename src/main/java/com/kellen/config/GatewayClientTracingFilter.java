@@ -1,5 +1,7 @@
 package com.kellen.config;
 
+import com.kellen.observability.fleet.TrafficRouteObservation;
+
 import io.opentelemetry.api.GlobalOpenTelemetry;
 import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.StatusCode;
@@ -128,6 +130,10 @@ public final class GatewayClientTracingFilter implements GlobalFilter, HttpHeade
                 URI target = exchange.getAttribute(GATEWAY_REQUEST_URL_ATTR);
                 if (state == null || isAlreadyRouted(exchange) || !http(target)) return chain.filter(exchange);
                 Context client = state.start(exchange.getRequest().getMethod().name());
+                String mode = exchange.getAttribute(CanaryRoutingFilter.ROUTE_MODE);
+                if (mode != null) {
+                    TrafficRouteObservation.record(Span.fromContext(client), "gateway", mode, "selected");
+                }
                 // 使用公开 Reactor bridge 同时覆盖订阅与异步回调，Scope 只在当前线程同步使用。
                 return ContextPropagationOperator.runWithContext(Mono.defer(() -> {
                     try (Scope ignored = client.makeCurrent()) { return chain.filter(exchange); }
