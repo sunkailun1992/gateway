@@ -2,11 +2,11 @@
 
 ## 技术基线
 
-- Java 17
-- Spring Boot 4.0.4
-- Spring Cloud 2025.1.1
+- Java 21
+- Spring Boot 4.0.9
+- Spring Cloud 2025.1.4
 - Spring Cloud Alibaba 2025.1.0.0
-- Nacos Client 3.2.2
+- Nacos Client 3.3.0
 - Spring Cloud Gateway 4
 - Gradle Wrapper 8.5
 

@@ -3,14 +3,14 @@
  */
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '4.0.4'
+    id 'org.springframework.boot' version '4.0.9'
     id 'io.spring.dependency-management' version '1.1.7'
 }
 /**
  * 项目基础信息
  */
 group = 'com.gateway'
-version = '1.1.8'
+version = '1.1.9'
 description = 'gateway'
 
 def privateMavenUrl = providers.gradleProperty('privateMavenUrl')
@@ -21,13 +21,13 @@ def privateMavenPassword = providers.gradleProperty('privateMavenPassword')
         .orElse(providers.environmentVariable('PRIVATE_MAVEN_PASSWORD'))
 
 ext {
-    javaReleaseVersion = 17
-    springCloudVersion = '2025.1.1'
+    javaReleaseVersion = 21
+    springCloudVersion = '2025.1.4'
     springCloudAlibabaVersion = '2025.1.0.0'
-    nacosClientVersion = '3.2.2'
-    springdocVersion = '3.0.3'
-    rpcApiVersion = '1.0.7'
-    fleetObservabilityVersion = '0.1.3'
+    nacosClientVersion = '3.3.0'
+    springdocVersion = '3.1.1'
+    rpcApiVersion = '1.0.9'
+    fleetObservabilityVersion = '0.1.4'
 }
 /**
  * 编码规则
@@ -52,7 +52,7 @@ springBoot {
 repositories {
     mavenLocal()
     mavenCentral()
-    maven { url 'https://maven.aliyun.com/repository/public' }
+    maven { url = 'https://maven.aliyun.com/repository/public' }
     if (privateMavenUrl.isPresent()) {
         maven {
             name = 'privateRelease'
@@ -82,7 +82,7 @@ test {
 
 dependencyManagement {
     imports {
-        mavenBom "io.opentelemetry:opentelemetry-bom:1.59.0"
+        mavenBom "io.opentelemetry:opentelemetry-bom:1.67.0"
         mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
         mavenBom "com.alibaba.cloud:spring-cloud-alibaba-dependencies:${springCloudAlibabaVersion}"
     }
@@ -92,7 +92,7 @@ configurations.configureEach {
         if (details.requested.group == 'com.alibaba.nacos'
                 && (details.requested.name == 'nacos-client' || details.requested.name.startsWith('nacos-'))) {
             details.useVersion nacosClientVersion
-            details.because 'Nacos client must match the 3.2.2 server line used by the shared microservice environment.'
+            details.because 'Nacos client must match the 3.3.0 server line used by the shared microservice environment.'
         }
     }
 }
@@ -101,7 +101,7 @@ configurations.configureEach {
  */
 dependencies {
     // 补齐 Apple Silicon DNS 原生库；BOM 管版，Linux CI 制品也保留 Mac ARM 支持。
-    runtimeOnly(group: 'io.netty', name: 'netty-resolver-dns-native-macos', classifier: 'osx-aarch_64')
+    runtimeOnly 'io.netty:netty-resolver-dns-native-macos::osx-aarch_64'
     implementation "com:rpc-api:${rpcApiVersion}"
     // HTTP 安全终态日志仅引入轻量公共模块，保持网关依赖边界。
     implementation "com:fleet-observability:${fleetObservabilityVersion}"
@@ -111,14 +111,14 @@ dependencies {
     implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
-    implementation 'io.opentelemetry:opentelemetry-api:1.59.0'
-    // 公共 Instrumenter 提供 HTTP 语义抑制，与既有 OTel API 1.59.0 对齐，不建立应用 SDK。
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:2.25.0'
-    implementation 'io.opentelemetry.instrumentation:opentelemetry-reactor-3.1:2.25.0-alpha'
+    implementation 'io.opentelemetry:opentelemetry-api:1.67.0'
+    // 公共 Instrumenter 提供 HTTP 语义抑制，与 OTel API 1.67.0（Java agent 2.33.1 内置版本）对齐，不建立应用 SDK。
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:2.33.1'
+    implementation 'io.opentelemetry.instrumentation:opentelemetry-reactor-3.1:2.33.1-alpha'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
     implementation "org.springdoc:springdoc-openapi-starter-webflux-ui:${springdocVersion}"
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'io.opentelemetry:opentelemetry-sdk-testing:1.59.0'
-    testImplementation 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.59.0'
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-testing:1.67.0'
+    testImplementation 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.67.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }

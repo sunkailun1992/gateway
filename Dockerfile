@@ -1,4 +1,4 @@
-FROM eclipse-temurin:17-jre
-COPY build/libs/gateway-1.0.0.jar /app/gateway-1.0.0.jar
+FROM eclipse-temurin:21-jre
+COPY build/libs/gateway.jar /app/gateway.jar
 WORKDIR /app/
-ENTRYPOINT ["java", "-jar", "/app/gateway-1.0.0.jar"]
+ENTRYPOINT ["java", "-jar", "/app/gateway.jar"]

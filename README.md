@@ -1,17 +1,17 @@
 # gateway
 
-`gateway` 是基于 Spring Cloud Gateway 的入口网关服务，面向 Java 17 / Spring Boot 4 / Spring Cloud 2025.1.x。当前只承担路由转发、跨域预检、网关限流和 Nacos 配置加载职责。
+`gateway` 是基于 Spring Cloud Gateway 的入口网关服务，面向 Java 21 / Spring Boot 4 / Spring Cloud 2025.1.x。当前只承担路由转发、跨域预检、网关限流和 Nacos 配置加载职责。
 
 ## 当前定位
 
 - 服务名：`gateway`
 - 默认端口：`7100`
 - Java 版本：`17`
-- Spring Boot：`4.0.4`
-- Spring Cloud：`2025.1.1`
+- Spring Boot：`4.0.9`
+- Spring Cloud：`2025.1.4`
 - Spring Cloud Alibaba：`2025.1.0.0`
-- Nacos Client：`3.2.2`
-- Gradle Wrapper：`8.14.3`
+- Nacos Client：`3.3.0`
+- Gradle Wrapper：`9.9.1`
 - 配置中心：Nacos SDK `<NACOS_SDK_ADDR>`，当前应用端口 `8848`；控制台端口 `18080`
 - Nacos namespace ID：`github-dev`
 
