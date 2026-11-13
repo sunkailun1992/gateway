@@ -57,3 +57,40 @@ spring:
       - "optional:nacos:gateway-spring.yaml?refreshEnabled=true"
       # redis.yaml：Redis 连接配置，供网关限流、缓存或会话能力使用。
       - "optional:nacos:redis.yaml?refreshEnabled=true"
+      # local-canary.yaml：个人本地灰度标签与授权，仅在 github-dev 的 dev profile 启动时读取。
+      - "nacos:local-canary.yaml?refreshEnabled=false"
+
+---
+
+# 本地网关作为入口，发现其他实例但不注册到共享服务列表。
+spring:
+  cloud:
+    nacos:
+      discovery:
+        # 保留服务发现，只关闭本地网关自身的注册。
+        register-enabled: false
+
+traffic:
+  governance:
+    canary:
+      # 仅当共享配置明确就绪时启用授权分流。缺项时拒绝灰度请求。
+      enabled: ${local-canary.ready:false}
+      # 每个稳定服务名映射到允许的灰度标签与对应发现名，常规路由仍由 gateway-spring.yaml 提供。
+      # 标签默认 kellen-local。自定义 APP_CANARY_TAG 时须同时维护对应映射。
+      routes:
+        ai:
+          kellen-local: ai-canary-kellen-local
+        ai-agent:
+          kellen-local: ai-agent-canary-kellen-local
+        ai-memory:
+          kellen-local: ai-memory-canary-kellen-local
+        mcp:
+          kellen-local: mcp-canary-kellen-local
+        message:
+          kellen-local: message-canary-kellen-local
+        rag:
+          kellen-local: rag-canary-kellen-local
+        report:
+          kellen-local: report-canary-kellen-local
+        user:
+          kellen-local: user-canary-kellen-local
