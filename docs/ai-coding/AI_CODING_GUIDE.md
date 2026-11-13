@@ -1,6 +1,6 @@
 # Gateway AI 编码执行指南
 
-Git 流程以 `AGENTS.md` 与 `BRANCHING_SPEC.md` 为准：最新 main 起完整功能短分支，test 集成、preprod 候选分别验证并保留源分支；完整进入 main 且远端核实后才删除本次已合短分支。main/test/preprod、未合分支与其他 worktree 使用中的分支均保护。Git 阶段不切换当前 dev profile/namespace，不代表环境已部署；纯规范不升业务版本。
+Git 流程以 `AGENTS.md` 与 `BRANCHING_SPEC.md` 为准：最新 main 起完整功能短分支，在确定 commit 上验证；完整进入 main 且远端核实后才删除本次已合短分支。main、未合分支与其他 worktree 使用中的分支均保护。Git 阶段不切换当前 dev profile/namespace，不代表环境已部署；纯规范不升业务版本。
 
 ## 使用方式
 

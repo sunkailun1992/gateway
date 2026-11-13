@@ -12,7 +12,7 @@
 4. 再读 `AI_AUTOMATION_WORKFLOW.md`，按需求说明、验收标准、开发手册、测试说明和交付说明组织自动化开发。
 5. 再读 `AI_ENGINEERING_GUARDRAILS.md`，确认风险分级、Definition of Done、测试门禁、安全门禁和交付说明。
 6. 再读 `BRANCHING_SPEC.md`，确认分支命名、短分支生命周期、release/hotfix、tag 和清理规则。
-7. 再读 `ENVIRONMENT_CONFIG_SPEC.md`，确认环境、Nacos namespace、Java profile 和前端/小程序边界。
+7. 再读 `ENVIRONMENT_CONFIG_SPEC.md`，确认环境、Nacos namespace、Java profile 和前端边界。
 8. 再读 `VERSIONING_SPEC.md`，确认 `group = 'com'`、`version = '1.0.0'`、补丁递增和公共包消费者同步规则。
 9. 再读 `RPC_API_CODING_SPEC.md`，确认网关与 Dubbo RPC 契约、`../rpc-api` 和 `../utils` 的边界。
 10. 再读 `TESTING_SPEC.md`，确认网关 SpringBootTest、WebTestClient、stub backend 和 E2E 测试边界。
@@ -35,7 +35,7 @@
 - Springfox 和自写 `/swagger-resources` 聚合已移除；OpenAPI 聚合走 Springdoc 官方 Swagger UI，入口是 `/swagger-ui/index.html`，原始文档仍走各服务 `/v3/api-docs`。
 - 日志配置来自 Nacos 远程 `logging.yml`，仓库不保留本地 `logback-spring.xml`。
 - 分支命名、短分支生命周期、release/hotfix、tag 和分支清理按 `BRANCHING_SPEC.md` 处理。
-- 环境、Nacos namespace、Java profile 和前端/小程序边界按 `ENVIRONMENT_CONFIG_SPEC.md` 处理。
+- 环境、Nacos namespace、Java profile 和前端边界按 `ENVIRONMENT_CONFIG_SPEC.md` 处理。
 - 项目版本、公共包依赖和后端 Java 新项目基础坐标按 `VERSIONING_SPEC.md` 处理；纯 AI 规范或 README 改动不提升制品版本。
 - Dubbo RPC 契约统一维护在同级 `../rpc-api`；网关不实现 provider/consumer 业务编排，只负责 HTTP 路由和请求头透传。
 - 测试按 `TESTING_SPEC.md` 分层；路由、路径改写、header 透传和 OpenAPI 转发必须用 SpringBootTest + WebTestClient 走真实网关链路。

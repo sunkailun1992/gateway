@@ -76,7 +76,7 @@
 - `/user/auth/sessions` 兼容外部 user 前缀，转发到 `user` 服务 `/auth/sessions`。
 - `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于文档聚合。
 - `/message/**` 转发到 `message` 服务对应路径，例如 `/message/v3/api-docs` 转发到 `/v3/api-docs`。
-- `/api/**` 保持 AI 小程序现有路径不变，直接转发到 `ai` 服务。
+- `/api/**` 保持现有路径不变，直接转发到 `ai` 服务。
 - `/report/**` 转发到 `report` 服务对应路径，例如 `/report/v3/api-docs` 转发到 `/v3/api-docs`。
 
 ## OpenAPI 文档
