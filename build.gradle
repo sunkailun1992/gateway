@@ -10,7 +10,7 @@ plugins {
  * 项目基础信息
  */
 group = 'com.gateway'
-version = '1.2.0'
+version = '1.2.1'
 description = 'gateway'
 
 def privateMavenUrl = providers.gradleProperty('privateMavenUrl')
@@ -37,8 +37,9 @@ tasks.withType(JavaCompile) {
 }
 
 java {
-    sourceCompatibility = JavaVersion.toVersion(javaReleaseVersion)
-    targetCompatibility = JavaVersion.toVersion(javaReleaseVersion)
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(javaReleaseVersion as int)
+    }
 }
 
 springBoot {
