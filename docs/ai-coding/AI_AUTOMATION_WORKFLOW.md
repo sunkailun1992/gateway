@@ -80,7 +80,7 @@ Git 流程以 `AGENTS.md` 与 `BRANCHING_SPEC.md` 为准：最新 main 起完整
 - [ ] 逻辑删除字段处理正确。
 - [ ] 乐观锁 version 处理正确。
 - [ ] DDL 脚本按 ddl_history 规则新增或修改。
-- [ ] 如排查后端 Seata AT `undo_log` 启动问题，已确认由目标业务库手动执行 `../utils/src/main/resources/db/common-infra-schema.sql`，网关仓库不新增 SQL 副本。
+- [ ] 如排查后端 Seata AT `undo_log` 启动问题，已回到对应服务核对其 Flyway 迁移（`V1__baseline.sql` 含 `undo_log`）与 `spring.flyway.*` 配置，网关仓库不新增 SQL 副本。
 
 ## 权限
 - [ ] Controller 权限码正确。
