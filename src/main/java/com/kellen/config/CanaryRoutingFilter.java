@@ -3,6 +3,7 @@ package com.kellen.config;
 import com.kellen.traffic.CanaryGrant;
 import com.kellen.observability.fleet.TrafficRouteObservation;
 import io.opentelemetry.api.trace.Span;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.cloud.gateway.filter.RouteToRequestUrlFilter;
@@ -33,9 +34,12 @@ public class CanaryRoutingFilter implements GlobalFilter, Ordered {
     private static final Pattern SERVICE_ID = Pattern.compile("[a-z0-9][a-z0-9-]{0,62}");
 
     private final GatewayTrafficGovernanceProperties properties;
+    private final LocalCanaryIngress localIngress;
 
-    public CanaryRoutingFilter(GatewayTrafficGovernanceProperties properties) {
+    public CanaryRoutingFilter(GatewayTrafficGovernanceProperties properties,
+                               ObjectProvider<LocalCanaryIngress> localIngress) {
         this.properties = properties;
+        this.localIngress = localIngress.getIfAvailable();
     }
 
     @Override
@@ -50,14 +54,19 @@ public class CanaryRoutingFilter implements GlobalFilter, Ordered {
         URI target = exchange.getAttribute(GATEWAY_REQUEST_URL_ATTR);
         String service = target == null ? null : target.getHost();
         Map<String, Map<String, String>> routes = config.getRoutes();
+        // dev 回环入口：普通本机请求由网关按共享标签签短时路由授权，走灰度且不回落稳定实例。
+        boolean localGrant = grants == null && localIngress != null;
         if (grants == null) {
             if (isCanaryService(service)) {
                 return forbidden(exchange);
             }
-            if (service != null && config.isEnabled() && routes.containsKey(service)) {
-                exchange.getAttributes().put(ROUTE_MODE, "stable");
+            if (!localGrant || target == null || !isLoadBalanced(exchange, target)) {
+                if (service != null && config.isEnabled() && routes.containsKey(service)) {
+                    exchange.getAttributes().put(ROUTE_MODE, "stable");
+                }
+                return chain.filter(exchange);
             }
-            return chain.filter(exchange);
+            grants = List.of(localIngress.grant(exchange, service));
         }
         if (!config.isEnabled() || grants.size() != 1 || service == null || isCanaryService(service)
                 || !isLoadBalanced(exchange, target)) {
@@ -77,8 +86,10 @@ public class CanaryRoutingFilter implements GlobalFilter, Ordered {
         Span ingressSpan = Span.current();
         URI canaryTarget = UriComponentsBuilder.fromUri(target).host(destination).build(true).toUri();
         exchange.getAttributes().put(GATEWAY_REQUEST_URL_ATTR, canaryTarget);
-        ServerHttpRequest forwarded = exchange.getRequest().mutate().headers(headers ->
-                headers.set(CanaryGrant.HEADER, token)).build();
+        ServerHttpRequest forwarded = exchange.getRequest().mutate().headers(headers -> {
+            if (localGrant) TrafficGovernanceHeaderFilter.removeDefaultHeaders(headers, properties.getRequest());
+            headers.set(CanaryGrant.HEADER, token);
+        }).build();
         return chain.filter(exchange.mutate().request(forwarded).build())
                 .onErrorResume(NotFoundException.class, unavailable -> {
                     TrafficRouteObservation.record(ingressSpan, "gateway", "canary", "unavailable");

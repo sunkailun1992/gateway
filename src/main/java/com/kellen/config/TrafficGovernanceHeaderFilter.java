@@ -49,12 +49,7 @@ public class TrafficGovernanceHeaderFilter implements WebFilter {
 
         ServerHttpRequest mutatedRequest = request.mutate().headers(headers -> {
             GRAY_HEADERS.forEach(headers::remove);
-            headers.remove("X-Release-Version");
-            headers.remove("X-Traffic-Lane");
-            headers.remove("release.version");
-            headers.remove("traffic.lane");
-            removeConfiguredHeader(headers, config.getReleaseVersionHeader());
-            removeConfiguredHeader(headers, config.getLaneHeader());
+            removeDefaultHeaders(headers, config);
             removeConfiguredHeader(headers, config.getCanaryTagHeader());
             removeConfiguredHeader(headers, config.getCanaryWeightHeader());
             if (grants == null && properties.isEnabled()) {
@@ -65,7 +60,17 @@ public class TrafficGovernanceHeaderFilter implements WebFilter {
         return chain.filter(exchange.mutate().request(mutatedRequest).build());
     }
 
-    private void removeConfiguredHeader(HttpHeaders headers, String name) {
+    /** 隐式本机灰度授权与显式授权共用同一治理头清理规则，业务头不得移除。 */
+    static void removeDefaultHeaders(HttpHeaders headers, GatewayTrafficGovernanceProperties.Request config) {
+        headers.remove("X-Release-Version");
+        headers.remove("X-Traffic-Lane");
+        headers.remove("release.version");
+        headers.remove("traffic.lane");
+        removeConfiguredHeader(headers, config.getReleaseVersionHeader());
+        removeConfiguredHeader(headers, config.getLaneHeader());
+    }
+
+    private static void removeConfiguredHeader(HttpHeaders headers, String name) {
         if (StringUtils.hasText(name) && BUSINESS_HEADERS.stream().noneMatch(name::equalsIgnoreCase)) {
             headers.remove(name);
         }

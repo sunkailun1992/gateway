@@ -150,6 +150,16 @@ curl -sS "http://<NACOS_ADDR>/nacos/v3/client/cs/config?dataId=gateway-spring.ya
 java -jar build/libs/gateway.jar
 ```
 
+### dev 本机灰度入口
+
+IDEA 使用 `dev` 启动时，网关只监听本机回环地址。普通本机请求不必携带灰度授权：网关按共享的
+`local-canary.tag` 签一个短时路由授权，转给已注册的灰度实例；`Authorization`、来源租户及其它业务头原样交给后端校验。
+共享配置未就绪、签名密钥或标签不合法、缺少映射或灰度实例未启动时直接返回不可用，不回落稳定实例。
+
+默认本机路由只在 `dev` 且未同时启用 `test` / `prod` 时生效，并要求监听端、对端和 `Host` 都是回环地址，
+浏览器 `Origin` 如存在也必须是回环来源；带 `Forwarded` / `X-Forwarded-*` 头的请求不签发默认授权。
+显式传入的灰度授权仍按原规则校验，错误授权不会被默认授权替换。`test`、`prod` 的路由行为不变。
+
 ## 本地访问注意
 
 本机网关默认使用 `7100`；前端与 Nacos 是独立端口。Nacos 控制台的 `18080` 只用于管理，应用连接使用 `8848`，gRPC 使用 `9848`。

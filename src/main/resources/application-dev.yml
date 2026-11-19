@@ -76,6 +76,8 @@ traffic:
       # 仅当共享配置明确就绪时启用授权分流。缺项时拒绝灰度请求。
       enabled: ${local-canary.ready:false}
       # 每个稳定服务名映射到允许的灰度标签与对应发现名，常规路由仍由 gateway-spring.yaml 提供。
+      # 本机回环入口默认按 local-canary.tag 签短时路由授权走灰度；缺少灰度实例时返回不可用，不回落稳定服务。
+      # 业务认证头原样转发，显式授权仍按目标服务校验。
       # 标签默认 kellen-local。自定义 APP_CANARY_TAG 时须同时维护对应映射。
       routes:
         ai:
@@ -94,3 +96,10 @@ traffic:
           kellen-local: report-canary-kellen-local
         user:
           kellen-local: user-canary-kellen-local
+
+# IDEA 的本地网关只供本机访问；本机默认灰度只信任实际连接地址。
+server:
+  # 只监听本机回环地址，其他设备不能直接访问这个开发网关。
+  address: 127.0.0.1
+  # 不按 Forwarded、X-Forwarded-* 改写请求来源与监听地址，防止伪造成本机请求拿到默认灰度授权。
+  forward-headers-strategy: none
