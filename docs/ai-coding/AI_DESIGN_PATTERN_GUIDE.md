@@ -4,6 +4,7 @@
 
 ## 1. 总原则
 
+- 升级、选型和架构设计先查证主流做法：对照 GitHub 上多个同类主流项目的源码与文档，以多数做法为准，不以单个项目为准；同时查官方文档、RFC 与标准、NIST / OWASP 等权威指南和相关论文，在设计或说明里写明依据与来源。不为缩小改动范围或省事采用非主流的简化做法；确需缩小范围时，写清主流做法与简化做法的差别和代价，由维护者决定。
 - 先识别当前改动是 Java 网关代码、Spring Cloud Gateway 配置、Nacos YAML、脚本还是测试。
 - 优先沿用 Spring Cloud Gateway 官方模型：Route、Predicate、Filter、GlobalFilter、配置属性。
 - 设计模式必须服务网关边界：路由、跨域、请求头透传、限流、OpenAPI 文档转发、Nacos 配置读写和失败关闭。
