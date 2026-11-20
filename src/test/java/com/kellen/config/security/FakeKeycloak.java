@@ -111,7 +111,7 @@ public final class FakeKeycloak {
         registry.add("spring.security.oauth2.client.provider.keycloak.issuer-uri", keycloak::issuer);
         registry.add("spring.security.oauth2.resourceserver.jwt.issuer-uri", keycloak::issuer);
         registry.add("spring.security.oauth2.resourceserver.jwt.jws-algorithms", () -> "RS256");
-        registry.add("spring.security.oauth2.resourceserver.jwt.audiences", () -> "github-api,github-mcp");
+        registry.add("spring.security.oauth2.resourceserver.jwt.audiences", () -> "github-api,github-mcp,github-ai-agent");
     }
 
     /**

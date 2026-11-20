@@ -186,8 +186,18 @@ class GatewaySecurityConfigTest {
     }
 
     @Test
+    void agentAudienceBearerIsRelayedUnchanged() throws Exception {
+        // ai 经令牌交换取得受众 github-ai-agent 的令牌，按 AgentCard 登记的网关地址调 ai-agent，网关要放行并原样转发。
+        String token = KEYCLOAK.bearerToken("github-ai-agent");
+        client.get().uri("/report/current").headers(h -> h.setBearerAuth(token)).exchange().expectStatus().isOk();
+        RecordedRequest relayed = DOWNSTREAM.takeRequest(5, TimeUnit.SECONDS);
+        assertThat(relayed).isNotNull();
+        assertThat(relayed.getHeader(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer " + token);
+    }
+
+    @Test
     void invalidOrForeignAudienceBearerIs401JsonAndNeverReachesTheService() throws Exception {
-        for (String token : List.of("not-a-jwt", KEYCLOAK.bearerToken("github-ai-agent"))) {
+        for (String token : List.of("not-a-jwt", KEYCLOAK.bearerToken("github-rag-engine"))) {
             client.get().uri("/report/current").headers(h -> h.setBearerAuth(token)).exchange()
                     .expectStatus().isUnauthorized()
                     .expectHeader().value(HttpHeaders.WWW_AUTHENTICATE, value -> assertThat(value).startsWith("Bearer").contains("invalid_token"))

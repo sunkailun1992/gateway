@@ -24,7 +24,7 @@
 - 使用 `RequestRateLimiter` 做网关级限流。
 - 从 Nacos 远程 `logging.yml` 读取日志配置。
 - BFF：浏览器经 Keycloak（`github-dev` 域，授权码加 PKCE）登录，会话存 Spring Session（Redis）；转发时 `TokenRelay` 把会话里的访问令牌换成 `Authorization: Bearer`，并去掉 `Cookie` 头，访问令牌到期用刷新令牌续期。
-- 脚本与工具直接带 Bearer 访问令牌：网关校验签发方、受众（`github-api`、`github-mcp`）、有效期与 RS256 后原样转发。
+- 脚本与工具直接带 Bearer 访问令牌：网关校验签发方、受众（`github-api`、`github-mcp`，以及 ai 经令牌交换调 ai-agent 用的 `github-ai-agent`：AgentCard 登记的调用地址是网关）、有效期与 RS256 后原样转发；各服务仍只认自己的受众。
 - 只拒绝未认证的请求（页面跳转去登录，API 与 XHR 返回 401 JSON）；细粒度授权、租户与数据权限仍在各服务。
 
 ## 禁止事项
@@ -216,5 +216,5 @@ FLEET_TEST_PRIVACY=/secure/fleet-privacy-extension-0.1.1.jar \
 - 注销：`POST /logout`（带 CSRF 头）作废网关会话（连同会话里的令牌），再跳到 Keycloak 的注销端点结束 SSO 会话（带 `id_token_hint` 与 `post_logout_redirect_uri`，回到发起注销的入口）。XHR 请求（`X-Requested-With: XMLHttpRequest`）返回 202 加 `Location`，由前端自己导航；fetch 跟随跨源跳转会被 CORS 拦下。
 - 错误：未登录的页面跳转去登录；API 与 XHR 返回 401 JSON（`A0220`，`WWW-Authenticate: Bearer`）；CSRF 不对或拒绝访问返回 403 JSON（`A0301`）。
 - 启动依赖：登录注册用 `issuer-uri`，网关启动时向 Keycloak 取发现文档（RP 发起注销要用其中的 `end_session_endpoint`）；Keycloak 不可达时网关起不来，先确认 NAS 上的 Keycloak 在运行。
-- Nacos：`gateway-spring.yaml` 新增 Keycloak 登录注册（客户端密钥是运行时占位符 `GITHUB_KEYCLOAK_GATEWAY_CLIENT_SECRET`）、资源服务器（只收 RS256，受众 `github-api`、`github-mcp`）、`TokenRelay` 与去 `Cookie` 的默认过滤器、会话命名空间与 Swagger UI 的 CSRF；user 路由只留 `/auth/**`。三套 profile 不再导入 `security-jwt.yaml`。
+- Nacos：`gateway-spring.yaml` 新增 Keycloak 登录注册（客户端密钥是运行时占位符 `GITHUB_KEYCLOAK_GATEWAY_CLIENT_SECRET`）、资源服务器（只收 RS256，受众 `github-api`、`github-mcp`、`github-ai-agent`）、`TokenRelay` 与去 `Cookie` 的默认过滤器、会话命名空间与 Swagger UI 的 CSRF；user 路由只留 `/auth/**`。三套 profile 不再导入 `security-jwt.yaml`。
 - 测试：`GatewaySecurityConfigTest` 用 MockWebServer 模拟 Keycloak（发现文档、令牌端点、JWKS）与下游服务，走真实登录（PKCE）、令牌转发、到期并发续期、Bearer 校验（受众、算法）、CSRF 与注销；其余集成测试改为带假 Keycloak 签的令牌。追踪探针的两个最小应用不装安全与会话的自动配置。
