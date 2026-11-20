@@ -8,7 +8,7 @@
 - 先识别当前改动是 Java 网关代码、Spring Cloud Gateway 配置、Nacos YAML、脚本还是测试。
 - 优先沿用 Spring Cloud Gateway 官方模型：Route、Predicate、Filter、GlobalFilter、配置属性。
 - 设计模式必须服务网关边界：路由、跨域、请求头透传、限流、OpenAPI 文档转发、Nacos 配置读写和失败关闭。
-- 不允许用模式把用户认证、角色权限、租户隔离、数据权限或业务响应解析写进网关。
+- 不允许用模式把角色权限、租户隔离、数据权限或业务响应解析写进网关；BFF 登录与令牌转发只用 Spring Security 与 Spring Cloud Gateway 的标准组件（OAuth2 登录、资源服务器、TokenRelay），不自写认证模式。
 - 简单配置优先保留声明式 YAML，不为它硬套 Java 抽象。
 
 ## 2. 标准参考
@@ -63,7 +63,7 @@
 - 恢复旧 `TokenFilter`、`UserRpc`、Redis token 鉴权或业务权限过滤器。
 - Service Locator 和反射式路由插件。
 - 巨型 GatewayManager，把路由、跨域、文档、Nacos、监控都塞进一个类。
-- 在网关维护业务权限表、接口权限列表或用户登录态。
+- 在网关维护业务权限表、接口权限列表，或在 Spring Session 会话之外另存登录态与令牌。
 - 用 Java 代码替代清晰的 Spring Cloud Gateway YAML 配置，除非确有框架扩展需求。
 
 ## 5. 检查清单

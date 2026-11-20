@@ -1,5 +1,7 @@
 package com.kellen.config;
 
+import com.kellen.config.security.GatewaySecurityConfig;
+import com.kellen.config.security.FakeKeycloak;
 import com.kellen.traffic.CanaryGrant;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterAll;
@@ -64,12 +66,14 @@ class LocalCanaryIngressIntegrationTest {
     private static final Backend STABLE = Backend.start();
     private static final Backend USER = Backend.start();
     private static final Backend AI = Backend.start();
+    private static final String BEARER = "Bearer " + FakeKeycloak.get().bearerToken();
 
     @LocalServerPort int port;
     private WebTestClient client;
 
     @DynamicPropertySource
     static void routes(DynamicPropertyRegistry registry) {
+        FakeKeycloak.register(registry);
         String discovery = "spring.cloud.discovery.client.simple.instances.";
         registry.add(discovery + "user[0].uri", STABLE::uri);
         registry.add(discovery + "ai[0].uri", STABLE::uri);
@@ -97,7 +101,7 @@ class LocalCanaryIngressIntegrationTest {
 
     @BeforeEach void prepare() {
         STABLE.received.clear(); USER.received.clear(); AI.received.clear();
-        client = WebTestClient.bindToServer().baseUrl("http://127.0.0.1:" + port).build();
+        client = WebTestClient.bindToServer().baseUrl("http://127.0.0.1:" + port).defaultHeader(HttpHeaders.AUTHORIZATION, BEARER).build();
     }
 
     @AfterAll static void stop() { STABLE.stop(); USER.stop(); AI.stop(); }
@@ -121,7 +125,7 @@ class LocalCanaryIngressIntegrationTest {
     private void forwardAndAssert(String target, String service, Backend backend, byte[] body, MediaType contentType) {
         Instant before = Instant.now();
         client.post().uri(URI.create("http://127.0.0.1:" + port + target))
-                .contentType(contentType).header(HttpHeaders.AUTHORIZATION, "Bearer fixture-business-token")
+                .contentType(contentType)
                 .header("tenant-id", "fixture-tenant").header("X-Kellen-Source-Tenant-Id", "fixture-source")
                 .header("X-Meilian-Access-Token", "Bearer fixture-saas-token")
                 .header("X-Request-Id", "fixture-request").bodyValue(body)
@@ -132,7 +136,7 @@ class LocalCanaryIngressIntegrationTest {
             assertThat(request.target()).isEqualTo(target);
             assertThat(request.method()).isEqualTo("POST");
             assertThat(request.body()).containsExactly(body);
-            assertThat(request.headers().getFirst(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer fixture-business-token");
+            assertThat(request.headers().getFirst(HttpHeaders.AUTHORIZATION)).isEqualTo(BEARER);
             assertThat(request.headers().getFirst("tenant-id")).isEqualTo("fixture-tenant");
             assertThat(request.headers().getFirst("X-Kellen-Source-Tenant-Id")).isEqualTo("fixture-source");
             assertThat(request.headers().getFirst("X-Meilian-Access-Token")).isEqualTo("Bearer fixture-saas-token");
@@ -321,7 +325,7 @@ class LocalCanaryIngressIntegrationTest {
     @Profile("local-canary-ingress-it")
     @EnableAutoConfiguration
     @Import({GatewayTrafficGovernanceProperties.class, TrafficGovernanceHeaderFilter.class,
-            CanaryRoutingFilter.class, LocalCanaryIngress.class})
+            CanaryRoutingFilter.class, LocalCanaryIngress.class, GatewaySecurityConfig.class})
     static class TestApplication { }
 
     @TestConfiguration(proxyBeanMethods = false)

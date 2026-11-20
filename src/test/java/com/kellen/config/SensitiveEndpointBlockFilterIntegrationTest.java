@@ -1,5 +1,6 @@
 package com.kellen.config;
 
+import com.kellen.config.security.FakeKeycloak;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,6 +39,7 @@ class SensitiveEndpointBlockFilterIntegrationTest {
 
     @DynamicPropertySource
     static void reportRoute(DynamicPropertyRegistry registry) {
+        FakeKeycloak.register(registry);
         BACKEND.registerReportRoute(registry);
     }
 
@@ -99,7 +101,7 @@ class SensitiveEndpointBlockFilterIntegrationTest {
 
     @Test
     void businessRequestsAreStillForwarded() {
-        client.get().uri("/report/assessments/1").exchange()
+        client.get().uri("/report/assessments/1").headers(h -> h.setBearerAuth(FakeKeycloak.get().bearerToken())).exchange()
                 .expectStatus().isOk()
                 .expectBody(String.class).isEqualTo("stub:/assessments/1");
     }

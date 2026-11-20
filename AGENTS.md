@@ -25,7 +25,7 @@
 - 项目类型：Spring Cloud Gateway 网关
 - 技术栈：Java 21、Spring Boot、Spring Cloud Gateway、OpenAPI、Nacos、Gradle、`com:rpc-api`
 - 同级服务：`../user`、`../message`、`../ai`、`../report` 和其它后端服务
-- 核心风险：路由误配、请求头透传丢失、跨域放开、文档/监控入口暴露、Nacos 配置漂移、网关错误承担业务鉴权
+- 核心风险：路由误配、请求头透传丢失、跨域放开、文档/监控入口暴露、Nacos 配置漂移、BFF 登录与会话（PKCE、会话 Cookie、CSRF、令牌转发与注销）配置错误、网关错误承担业务鉴权
 
 ## 修改前阅读顺序
 
@@ -49,10 +49,10 @@
 
 ## 项目边界
 
-- 网关只负责路由、跨域、限流、OpenAPI 文档转发和请求转发。
+- 网关负责路由、跨域、限流、OpenAPI 文档转发、请求转发，以及 BFF 登录与令牌转发（第5阶段起：Keycloak 授权码加 PKCE 登录、会话存 Spring Session、`TokenRelay` 转发访问令牌、只拒绝未认证请求，见 README「BFF 登录与令牌转发」）。
 - 新增路由、过滤器、Nacos 配置处理或 OpenAPI 文档转发能力时，必须优先沿用 `docs/ai-coding/AI_DESIGN_PATTERN_GUIDE.md` 中的 Gateway Route、Predicate、Filter Chain、Adapter、Configuration Properties 等网关适用模式。
-- 网关必须原样透传 `Authorization: Bearer <jwt>` 等必要请求头，由 `user` 和业务服务处理认证授权。
-- 网关不实现业务级鉴权、字段级授权、租户隔离、用户身份解析和数据权限。
+- 网关必须原样透传带进来的 `Authorization: Bearer <访问令牌>` 等必要请求头；会话请求由 `TokenRelay` 换成 Bearer 头并去掉 `Cookie`。细粒度授权由业务服务按访问令牌与 user 的业务上下文完成。
+- 网关不实现业务级鉴权、字段级授权、租户隔离、业务上下文解析和数据权限；认证只用 Spring Security 的标准 OAuth2 组件，不自写令牌解析或校验。
 - 网关不实现 Dubbo provider/consumer 业务编排；跨服务 RPC 契约统一在同级 `../rpc-api`，网关只在需要外部 HTTP 暴露时维护路由。
 - 网关不维护业务库表结构；后端各服务的表结构（含 Seata AT 的 `undo_log`）只由该服务自己的 Flyway 迁移管理，utils 在建数据源之前先执行迁移。后端若提示 `undo_log table not exist`，回到对应服务核对其 `db/migration` 与 `spring.flyway.*` 配置，不在网关仓库新增 SQL 副本。
 - 路由配置以 Nacos 远程 `gateway-spring.yaml` 为准，仓库不保留本地配置副本。
@@ -86,7 +86,7 @@ bash scripts/check-secrets.sh
 
 ## 禁止事项
 
-- 禁止在网关恢复旧 Redis token 鉴权、业务权限校验或用户身份解析。
+- 禁止在网关恢复旧 Redis token 鉴权、自写令牌过滤器、业务权限校验或业务上下文解析；登录态只放 Spring Session 的会话。
 - 禁止为单个接口随意放开 `*` 跨域、凭证跨域、监控入口、文档入口或裸 IP 访问。
 - 禁止把 Nacos 地址、账号密码、内网敏感地址、本机路径和临时调试配置写入仓库。
 - 禁止 AI 触碰真实密钥/凭证（疑似密钥只能告警，由项目负责人处理）；配置中心结构性调整（dataId 拆分/合并、import 顺序、`${}` 引用、Nacos 接入地址/内网地址、namespace/group）允许 AI 自主完成，但必须保值不改值，不得擅自变更生产业务配置的实际取值。

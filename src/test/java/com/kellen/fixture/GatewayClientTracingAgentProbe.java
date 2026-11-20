@@ -174,7 +174,17 @@ public final class GatewayClientTracingAgentProbe {
                 Map.entry("logging.level.root", "WARN"),
                 Map.entry("gateway.observability.client-span-enabled", "true"),
                 Map.entry("fleet.observability.enabled", "true"),
-                Map.entry("test.gateway.tracing.fixture", "true")));
+                Map.entry("test.gateway.tracing.fixture", "true"),
+                // 探针只测客户端追踪，与登录、令牌校验和会话无关：两个最小应用都不装安全与会话的自动配置。
+                Map.entry("spring.autoconfigure.exclude", String.join(",",
+                        "org.springframework.boot.security.autoconfigure.web.reactive.ReactiveWebSecurityAutoConfiguration",
+                        "org.springframework.boot.security.autoconfigure.ReactiveUserDetailsServiceAutoConfiguration",
+                        "org.springframework.boot.security.autoconfigure.actuate.web.reactive.ReactiveManagementWebSecurityAutoConfiguration",
+                        "org.springframework.boot.security.oauth2.client.autoconfigure.reactive.ReactiveOAuth2ClientAutoConfiguration",
+                        "org.springframework.boot.security.oauth2.client.autoconfigure.reactive.ReactiveOAuth2ClientWebSecurityAutoConfiguration",
+                        "org.springframework.boot.security.oauth2.server.resource.autoconfigure.reactive.ReactiveOAuth2ResourceServerAutoConfiguration",
+                        "org.springframework.boot.session.data.redis.autoconfigure.SessionDataRedisAutoConfiguration",
+                        "org.springframework.boot.session.autoconfigure.SessionAutoConfiguration"))));
         return application;
     }
 

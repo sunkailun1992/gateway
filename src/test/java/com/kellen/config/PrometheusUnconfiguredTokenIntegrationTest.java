@@ -1,5 +1,8 @@
 package com.kellen.config;
 
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import com.kellen.config.security.FakeKeycloak;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalManagementPort;
@@ -14,6 +17,8 @@ import org.springframework.test.web.reactive.server.WebTestClient;
         "management.endpoints.web.exposure.include=*", "management.health.redis.enabled=false",
         "security.actuator.token="})
 class PrometheusUnconfiguredTokenIntegrationTest {
+    @DynamicPropertySource static void keycloak(DynamicPropertyRegistry registry) { FakeKeycloak.register(registry); }
+
     @LocalManagementPort int managementPort;
     @Test void noConfigurationNeverAcceptsAnyToken() {
         var client = WebTestClient.bindToServer().baseUrl("http://127.0.0.1:" + managementPort).build();

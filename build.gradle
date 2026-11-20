@@ -10,7 +10,7 @@ plugins {
  * 项目基础信息
  */
 group = 'com.gateway'
-version = '1.2.2'
+version = '1.3.0'
 description = 'gateway'
 
 def privateMavenUrl = providers.gradleProperty('privateMavenUrl')
@@ -117,8 +117,17 @@ dependencies {
     implementation 'io.opentelemetry.instrumentation:opentelemetry-instrumentation-api:2.33.1'
     implementation 'io.opentelemetry.instrumentation:opentelemetry-reactor-3.1:2.33.1-alpha'
     implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
+    // BFF：浏览器经 Keycloak 授权码加 PKCE 登录，会话存在 Redis（Spring Session），转发时 TokenRelay 换成 Bearer 访问令牌；
+    // 脚本与工具直接带 Bearer 令牌（资源服务器）。网关是 WebFlux，不用 utils 的 servlet 资源服务器自动配置。
+    implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client'
+    implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
+    implementation 'org.springframework.boot:spring-boot-starter-session-data-redis'
     implementation "org.springdoc:springdoc-openapi-starter-webflux-ui:${springdocVersion}"
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-security-oauth2-client-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server-test'
+    // 版本跟随 Spring Cloud BOM 管理的 OkHttp（4.12.0），下游服务与令牌端点用它模拟。
+    testImplementation 'com.squareup.okhttp3:mockwebserver'
     testImplementation 'io.opentelemetry:opentelemetry-sdk-testing:1.67.0'
     testImplementation 'io.opentelemetry:opentelemetry-sdk-extension-autoconfigure-spi:1.67.0'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

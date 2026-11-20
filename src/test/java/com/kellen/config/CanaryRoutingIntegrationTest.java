@@ -1,5 +1,6 @@
 package com.kellen.config;
 
+import com.kellen.config.security.FakeKeycloak;
 import com.kellen.traffic.CanaryGrant;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +33,7 @@ class CanaryRoutingIntegrationTest {
     private static final String SIGNING_KEY = Base64.getUrlEncoder().withoutPadding().encodeToString(new byte[32]);
     private static final StubBackend STABLE = StubBackend.start();
     private static final StubBackend CANARY = StubBackend.start();
+    private static final String BEARER = "Bearer " + FakeKeycloak.get().bearerToken();
 
     @LocalServerPort
     private int port;
@@ -40,6 +42,7 @@ class CanaryRoutingIntegrationTest {
 
     @DynamicPropertySource
     static void configureRoutes(DynamicPropertyRegistry registry) {
+        FakeKeycloak.register(registry);
         String discovery = "spring.cloud.discovery.client.simple.instances.";
         registry.add(discovery + "report[0].uri", STABLE::uri);
         registry.add(discovery + "report-canary-blue[0].uri", CANARY::uri);
@@ -75,13 +78,12 @@ class CanaryRoutingIntegrationTest {
     void setUp() {
         STABLE.clear();
         CANARY.clear();
-        client = WebTestClient.bindToServer().baseUrl("http://127.0.0.1:" + port).build();
+        client = WebTestClient.bindToServer().baseUrl("http://127.0.0.1:" + port).defaultHeader(HttpHeaders.AUTHORIZATION, BEARER).build();
     }
 
     @Test
     void usesStableServiceAndRemovesUntrustedGovernanceHeaders() {
         client.get().uri("/report/current")
-                .header(HttpHeaders.AUTHORIZATION, "Bearer fixture")
                 .header("X-Tenant-Id", "fixture-tenant")
                 .header("X-Release-Version", "external-version")
                 .header("X-Traffic-Lane", "external-lane")
@@ -93,7 +95,7 @@ class CanaryRoutingIntegrationTest {
                 .exchange().expectStatus().isOk().expectBody(String.class).isEqualTo("stub:/current");
 
         assertThat(STABLE.receivedRequests()).singleElement().satisfies(request -> {
-            assertThat(request.headers().getFirst(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer fixture");
+            assertThat(request.headers().getFirst(HttpHeaders.AUTHORIZATION)).isEqualTo(BEARER);
             assertThat(request.headers().getFirst("X-Tenant-Id")).isEqualTo("fixture-tenant");
             assertThat(request.headers().getFirst("X-Release-Version")).isEqualTo("1.0.0");
             assertThat(request.headers().getFirst("X-Traffic-Lane")).isEqualTo("stable");
@@ -111,7 +113,6 @@ class CanaryRoutingIntegrationTest {
     void routesVerifiedGrantToCanaryAndPreservesEncodedPathQueryAndAuthorization() {
         String token = grant("report", "blue");
         client.get().uri(URI.create("http://127.0.0.1:" + port + "/report/a%20b?part=a%2Fb&part=c%2Bd"))
-                .header(HttpHeaders.AUTHORIZATION, "Bearer fixture")
                 .header(CanaryGrant.HEADER, token)
                 .header("X-Traffic-Lane", "external-lane")
                 .header("X-Canary-Tag", "external-tag")
@@ -119,7 +120,7 @@ class CanaryRoutingIntegrationTest {
 
         assertThat(CANARY.receivedRequests()).singleElement().satisfies(request -> {
             assertThat(request.target()).isEqualTo("/a%20b?part=a%2Fb&part=c%2Bd");
-            assertThat(request.headers().getFirst(HttpHeaders.AUTHORIZATION)).isEqualTo("Bearer fixture");
+            assertThat(request.headers().getFirst(HttpHeaders.AUTHORIZATION)).isEqualTo(BEARER);
             assertThat(request.headers().get(CanaryGrant.HEADER)).containsExactly(token);
             assertThat(request.headers().containsHeader("X-Traffic-Lane")).isFalse();
             assertThat(request.headers().containsHeader("X-Canary-Tag")).isFalse();

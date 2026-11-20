@@ -1,5 +1,6 @@
 package com.kellen.config;
 
+import com.kellen.config.security.FakeKeycloak;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,6 +35,7 @@ class ApiDocsEnabledIntegrationTest {
 
     @DynamicPropertySource
     static void reportRoute(DynamicPropertyRegistry registry) {
+        FakeKeycloak.register(registry);
         BACKEND.registerReportRoute(registry);
     }
 

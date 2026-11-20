@@ -1,5 +1,7 @@
 package com.kellen.config;
 
+import org.springframework.http.HttpHeaders;
+import com.kellen.config.security.FakeKeycloak;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,12 +28,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CorsPolicyHttpIntegrationTest {
     private static final String ADMIN = "https://admin.example.test";
     private static final StubBackend BACKEND = StubBackend.start();
+    private static final String BEARER = "Bearer " + FakeKeycloak.get().bearerToken();
     @LocalServerPort private int port;
     @Autowired private ConfigurableEnvironment environment;
     private WebTestClient client;
 
     @DynamicPropertySource
-    static void route(DynamicPropertyRegistry registry) { BACKEND.registerReportRoute(registry); }
+    static void route(DynamicPropertyRegistry registry) { FakeKeycloak.register(registry); BACKEND.registerReportRoute(registry); }
 
     @AfterAll
     static void stopBackend() { BACKEND.stop(); }
@@ -39,7 +42,7 @@ class CorsPolicyHttpIntegrationTest {
     @BeforeEach
     void setup() {
         BACKEND.clear();
-        client = WebTestClient.bindToServer().baseUrl("http://127.0.0.1:" + port).build();
+        client = WebTestClient.bindToServer().baseUrl("http://127.0.0.1:" + port).defaultHeader(HttpHeaders.AUTHORIZATION, BEARER).build();
         policy(Map.of("gateway.cors.allowed-origins", ADMIN, "gateway.cors.allow-credentials", true));
     }
 
@@ -94,7 +97,7 @@ class CorsPolicyHttpIntegrationTest {
     @Test
     void allowedActualAndSameOriginRequestsKeepBusinessRouting() {
         client.get().uri("/report/records").header("Origin", ADMIN)
-                .header("Authorization", "Bearer synthetic-browser-token").exchange()
+                .exchange()
                 .expectStatus().isOk().expectHeader().valueEquals("Access-Control-Allow-Origin", ADMIN);
         client.get().uri("/report/records").header("Origin", "http://127.0.0.1:" + port).exchange()
                 .expectStatus().isOk().expectHeader().doesNotExist("Access-Control-Allow-Origin");
@@ -147,14 +150,13 @@ class CorsPolicyHttpIntegrationTest {
                 "Access-Control-Expose-Headers", List.of("Authorization"),
                 "X-Backend-Trace", List.of("synthetic-trace")));
         client.post().uri("/report/records").header("Origin", ADMIN)
-                .header("Authorization", "Bearer synthetic-browser-token")
                 .bodyValue("{}").exchange().expectStatus().isOk()
                 .expectHeader().valueEquals("Access-Control-Allow-Origin", ADMIN)
                 .expectHeader().valueEquals("Access-Control-Allow-Credentials", "true")
                 .expectHeader().valueEquals("Access-Control-Expose-Headers", "Authorization, traceId, X-Trace-Id")
                 .expectHeader().valueEquals("X-Backend-Trace", "synthetic-trace")
                 .expectBody(String.class).isEqualTo("stub:/records");
-        assertThat(BACKEND.receivedAuthorizations()).containsExactly("Bearer synthetic-browser-token");
+        assertThat(BACKEND.receivedAuthorizations()).containsExactly(BEARER);
         assertThat(BACKEND.receivedPaths()).containsExactly("/records");
     }
 

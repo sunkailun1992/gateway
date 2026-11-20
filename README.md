@@ -1,12 +1,12 @@
 # gateway
 
-`gateway` 是基于 Spring Cloud Gateway 的入口网关服务，面向 Java 21 / Spring Boot 4 / Spring Cloud 2025.1.x。当前只承担路由转发、跨域预检、网关限流和 Nacos 配置加载职责。
+`gateway` 是基于 Spring Cloud Gateway 的入口网关服务，面向 Java 21 / Spring Boot 4 / Spring Cloud 2025.1.x。承担路由转发、跨域预检、网关限流与 Nacos 配置加载；第5阶段起也是 BFF：浏览器经 Keycloak 登录、会话存 Redis，转发时把会话里的访问令牌换成 Bearer 头。
 
 ## 当前定位
 
 - 服务名：`gateway`
 - 默认端口：`7100`
-- Java 版本：`17`
+- Java 版本：`21`
 - Spring Boot：`4.0.9`
 - Spring Cloud：`2025.1.4`
 - Spring Cloud Alibaba：`2025.1.0.0`
@@ -23,13 +23,16 @@
 - 处理浏览器跨域预检请求。
 - 使用 `RequestRateLimiter` 做网关级限流。
 - 从 Nacos 远程 `logging.yml` 读取日志配置。
+- BFF：浏览器经 Keycloak（`github-dev` 域，授权码加 PKCE）登录，会话存 Spring Session（Redis）；转发时 `TokenRelay` 把会话里的访问令牌换成 `Authorization: Bearer`，并去掉 `Cookie` 头，访问令牌到期用刷新令牌续期。
+- 脚本与工具直接带 Bearer 访问令牌：网关校验签发方、受众（`github-api`、`github-mcp`）、有效期与 RS256 后原样转发。
+- 只拒绝未认证的请求（页面跳转去登录，API 与 XHR 返回 401 JSON）；细粒度授权、租户与数据权限仍在各服务。
 
 ## 禁止事项
 
-- 网关不做业务 token、用户或权限鉴权；独立管理监听端口仅为 Prometheus 执行运维令牌校验。
+- 网关不做业务权限、租户或数据范围判断，也不解析业务上下文；认证只用 Spring Security 的标准 OAuth2 组件（登录、资源服务器、TokenRelay）。独立管理监听端口仅为 Prometheus 执行运维令牌校验。
 - 不恢复旧 `TokenFilter`、`UserRpc`、`RedisUtils` token 鉴权。
 - 不解析、组装或判断业务 `ApiResponse`。
-- 不查询 Redis 用户对象、接口权限列表或登录态。
+- 不查询 Redis 用户对象或接口权限列表；登录态只存在 Spring Session 的会话里（含 Keycloak 的访问令牌与刷新令牌），不另建令牌存储。
 - 不调用 `user/authUserSystem` 做二次鉴权。
 - 不恢复 Ribbon 负载均衡规则。
 - 不保留本地 `docs/nacos/gateway-spring.yaml`。
@@ -40,44 +43,28 @@
 
 ## 当前路由
 
-网关在路由前固定拦截自身及后端转发路径中的 Actuator 管理端点，返回 404；只保留根路径 `/actuator/health` 与 liveness/readiness 探针。公网规则不读取身份、权限或管理令牌，业务鉴权仍由后端负责。独立管理端口只允许探活和带有效 `actuatorReq` 的 Prometheus GET，其余管理入口固定 404，详见 [监控采集与回滚](docs/fleet-observability.md)。Swagger UI / OpenAPI 在 `prod` profile 默认关闭，其它 profile 默认开启，可通过个人 Nacos `gateway.exposure.api-docs-enabled` 显式控制。此过滤不替代来源白名单、CORS 或后端授权。
+网关在路由前固定拦截自身及后端转发路径中的 Actuator 管理端点，返回 404；只保留根路径 `/actuator/health` 与 liveness/readiness 探针。这一层只按路径拦截，登录与令牌由安全链处理，业务鉴权仍由后端负责。独立管理端口只允许探活和带有效 `actuatorReq` 的 Prometheus GET，其余管理入口固定 404，详见 [监控采集与回滚](docs/fleet-observability.md)。Swagger UI / OpenAPI 在 `prod` profile 默认关闭，其它 profile 默认开启，可通过个人 Nacos `gateway.exposure.api-docs-enabled` 显式控制。此过滤不替代来源白名单、CORS 或后端授权。
 
-当前远程 Nacos `gateway-spring.yaml` 维护 `user`、`message`、`ai` 和 `report` 服务路由：
+当前远程 Nacos `gateway-spring.yaml`（模板在 `../utils/ops/github-dev/nacos/DEFAULT_GROUP/gateway-spring.yaml`）的默认过滤器与路由：
 
-```yaml
-- id: user
-  uri: lb://user
-  predicates:
-    - Path=/user/**,/auth/**
-  filters:
-    - RewritePath=/user/(?<segment>.*), /${segment}
-- id: message
-  uri: lb://message
-  predicates:
-    - Path=/message/**
-  filters:
-    - RewritePath=/message/(?<segment>.*), /${segment}
-- id: ai
-  uri: lb://ai
-  predicates:
-    - Path=/api/**
-- id: report
-  uri: lb://report
-  predicates:
-    - Path=/report/**
-  filters:
-    - RewritePath=/report/(?<segment>.*), /${segment}
+```text
+default-filters（按顺序作用于全部路由）：
+  RequestRateLimiter            Redis 令牌桶限流
+  TokenRelay                    会话请求：把会话里的访问令牌换成 Bearer 头（Bearer 请求原样）
+  RemoveRequestHeader=Cookie    网关会话 Cookie 不进下游
+routes（按 order 匹配，专属路径在 /api/** 兜底前）：
+  /auth/**                                         → user
+  /user/**                                         → user（StripPrefix=1，文档等兼容前缀）
+  /message/**                                      → message（StripPrefix=1）
+  /report/**                                       → report（StripPrefix=1）
+  /api/mcp/**、/.well-known/oauth-protected-resource/** → mcp
+  /api/agents/**                                   → ai-agent
+  /api/ai-memory/**                                → ai-memory
+  /api/rag/**                                      → rag
+  /api/**                                          → ai
 ```
 
-路由含义：
-
-- `/auth/sessions` 直接转发到 `user` 服务 `/auth/sessions`。
-- `/auth/current/resources` 直接转发到 `user` 服务 `/auth/current/resources`。
-- `/user/auth/sessions` 兼容外部 user 前缀，转发到 `user` 服务 `/auth/sessions`。
-- `/user/v3/api-docs` 转发到 `user` 服务 `/v3/api-docs`，用于文档聚合。
-- `/message/**` 转发到 `message` 服务对应路径，例如 `/message/v3/api-docs` 转发到 `/v3/api-docs`。
-- `/api/**` 保持现有路径不变，直接转发到 `ai` 服务。
-- `/report/**` 转发到 `report` 服务对应路径，例如 `/report/v3/api-docs` 转发到 `/v3/api-docs`。
+`/oauth2/**`（登录入口）、`/login/oauth2/code/**`（Keycloak 回调）与 `/logout` 由网关自己处理，不转发；user 的旧登录、OAuth 与发现接口已在第5阶段删除。
 
 ## OpenAPI 文档
 
@@ -217,3 +204,17 @@ FLEET_TEST_PRIVACY=/secure/fleet-privacy-extension-0.1.1.jar \
 运行制品显式携带 `netty-resolver-dns-native-macos` 的 `osx-aarch_64` classifier，版本由同一 Spring Boot/Netty BOM 管理；现有 Intel classifier 保留。该依赖不按构建宿主筛选，因此 Linux CI 打出的 Jar 也能在 Apple Silicon 上加载对应原生库。Linux 继续使用其正常平台实现，不调整 DNS 服务器、查询或回退策略。构建后应核对实际运行图和 Jar 中版本一致，并在对应架构的全新 JVM 验证原生库可用性；打包成功不代替网络、服务健康或业务验收。
 
 本次精确对齐 `com:fleet-observability:0.1.2`，接入 Servlet ERROR 分派再次拒绝时的唯一 HTTP 终态修复；认证、响应和日志安全字段合同保持。源码与测试通过后，目标进程和追踪/日志联结仍须单独读回验收。
+
+## BFF 登录与令牌转发（1.3.0）
+
+第5阶段（设计见 kellen-workspace 的 `docs/superpowers/specs/2026-11-20-phase5-keycloak-design.md`），实现在 `com.kellen.config.security`，按请求的凭证分两条过滤链：
+
+- Bearer 链：带 `Authorization: Bearer` 的请求按 Keycloak 访问令牌校验，无状态、不建会话、不要 CSRF，通过后原样转发。
+- 会话链：其余请求。需要登录的页面跳到 `/oauth2/authorization/keycloak` → Keycloak 登录页 → 回调 `/login/oauth2/code/keycloak`（Keycloak 已登记 7100 与 8000 两个回调）；登录时换新会话 ID。
+- 会话 Cookie `__Host-SESSION`：Secure、HttpOnly、SameSite=Lax、Path=/（本机 localhost 属安全上下文）。会话在 Spring Session（Redis 命名空间 `fleet:gateway:session`），已授权客户端（访问令牌、刷新令牌）也存在会话里，网关重启不丢登录。
+- CSRF：会话请求的写操作要带 `X-XSRF-TOKEN`，值取自前端可读的 `XSRF-TOKEN` Cookie；Bearer 请求不需要。Swagger UI 开了 `springdoc.swagger-ui.csrf.enabled`，会自动带上。
+- 注销：`POST /logout`（带 CSRF 头）作废网关会话（连同会话里的令牌），再跳到 Keycloak 的注销端点结束 SSO 会话（带 `id_token_hint` 与 `post_logout_redirect_uri`，回到发起注销的入口）。XHR 请求（`X-Requested-With: XMLHttpRequest`）返回 202 加 `Location`，由前端自己导航；fetch 跟随跨源跳转会被 CORS 拦下。
+- 错误：未登录的页面跳转去登录；API 与 XHR 返回 401 JSON（`A0220`，`WWW-Authenticate: Bearer`）；CSRF 不对或拒绝访问返回 403 JSON（`A0301`）。
+- 启动依赖：登录注册用 `issuer-uri`，网关启动时向 Keycloak 取发现文档（RP 发起注销要用其中的 `end_session_endpoint`）；Keycloak 不可达时网关起不来，先确认 NAS 上的 Keycloak 在运行。
+- Nacos：`gateway-spring.yaml` 新增 Keycloak 登录注册（客户端密钥是运行时占位符 `GITHUB_KEYCLOAK_GATEWAY_CLIENT_SECRET`）、资源服务器（只收 RS256，受众 `github-api`、`github-mcp`）、`TokenRelay` 与去 `Cookie` 的默认过滤器、会话命名空间与 Swagger UI 的 CSRF；user 路由只留 `/auth/**`。三套 profile 不再导入 `security-jwt.yaml`。
+- 测试：`GatewaySecurityConfigTest` 用 MockWebServer 模拟 Keycloak（发现文档、令牌端点、JWKS）与下游服务，走真实登录（PKCE）、令牌转发、到期并发续期、Bearer 校验（受众、算法）、CSRF 与注销；其余集成测试改为带假 Keycloak 签的令牌。追踪探针的两个最小应用不装安全与会话的自动配置。

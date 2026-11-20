@@ -26,21 +26,22 @@
 
 ## 认证边界
 
-后端升级后，认证主线是 `Authorization: Bearer <jwt>`：
+第5阶段起登录、口令与令牌在 Keycloak，网关是 BFF（实现在 `com.kellen.config.security`）：
 
-- 登录入口在 `user` 服务 `/auth/sessions`。
+- 浏览器经网关登录（授权码加 PKCE），会话存 Spring Session（Redis），转发时 `TokenRelay` 把会话里的访问令牌换成 `Authorization: Bearer`；脚本与工具直接带 Bearer 令牌，网关校验后原样转发。
 - 当前用户资源入口在 `user` 服务 `/auth/current/resources`。
-- 统一响应由 `utils` 的 `ApiResponse<T>` 提供。
-- Spring Security、JWT 解析、用户上下文、多租户上下文由 `utils` 和业务服务处理。
+- 统一响应由 `utils` 的 `ApiResponse<T>` 提供；网关自己的 401/403 JSON 用同样的字段。
+- 访问令牌之后的业务上下文、用户上下文、多租户上下文由 `utils` 的资源服务器与业务服务处理。
 
 网关规则：
 
-- 原样透传 `Authorization`、`dataSource`、租户相关请求头。
+- 原样透传带进来的 `Authorization`、`dataSource`、租户相关请求头；会话请求的 `Cookie` 不进下游。
+- 只拒绝未认证的请求（Spring Security 标准组件），不做业务权限、租户或数据范围判断。
 - 不读取历史 `token` 请求头作为登录态。
 - 不查询 Redis 中的用户对象或 API 权限列表。
 - 不调用 `user/authUserSystem` 做二次鉴权。
 - 不按 `ApiResponse.code` 判断请求能否放行。
-- 不新增 token、header、用户、权限或 Actuator 自定义鉴权过滤器；`SensitiveEndpointBlockFilter` 只按路径拦截、不读身份信息，不属于鉴权，不得删除或放宽。
+- 不新增自写的 token、header、用户、权限或 Actuator 鉴权过滤器（BFF 只用 Spring Security 的 OAuth2 登录、资源服务器与 TokenRelay）；`SensitiveEndpointBlockFilter` 只按路径拦截、不读身份信息，不属于鉴权，不得删除或放宽。
 
 ## 注释规范
 
@@ -53,12 +54,10 @@
 
 - Nacos 路由配置只保存在远程配置中心，不在仓库保留本地 YAML 副本。
 - 公共限流放到 `spring.cloud.gateway.server.webflux.default-filters`，避免每条路由重复配置。
-- 当前配置 `user`、`message`、`ai` 和 `report` 服务路由。
+- 当前配置 user、message、report、mcp、ai-agent、ai-memory、rag 与兜底 ai 的路由；默认过滤器依次是限流、`TokenRelay`、`RemoveRequestHeader=Cookie`。
 - 新增微服务时，让 AI 读取远程 `gateway-spring.yaml` 后追加一条路由并整体发布回 Nacos。
 - 常规业务服务使用 `/{service}/**` 网关前缀，并按当前远端配置选择稳定的路径改写方式；现有 `message` 和 `report` 使用 `RewritePath`。
-- `user` 服务同时支持旧 `/user/**` 前缀和新 `/auth/**` 直达。
-- 旧 `/user/**` 使用 `RewritePath=/user/(?<segment>.*), /${segment}`，保证 `/user/auth/sessions` 仍可转到后端 `/auth/sessions`。
-- 新 `/auth/**` 不剥离前缀，保证 `/auth/sessions` 直达后端 `/auth/sessions`。
+- `user` 服务同时支持 `/user/**` 前缀（`StripPrefix=1`）和 `/auth/**` 直达；`/oauth2/**`、`/login/**`、`/logout` 是网关自己的登录入口、回调与注销，不能配成转发路由。
 - `message` 服务使用 `/message/**` 前缀，并通过 `RewritePath=/message/(?<segment>.*), /${segment}` 转发到后端真实路径。
 - `ai` 服务当前保留 `/api/**` 直达路由，不改写路径。
 - `report` 服务使用 `/report/**` 前缀，并通过 `RewritePath=/report/(?<segment>.*), /${segment}` 转发到后端真实路径。
