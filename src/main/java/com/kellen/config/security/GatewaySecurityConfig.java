@@ -32,9 +32,11 @@ import org.springframework.security.oauth2.client.web.server.WebSessionServerOAu
 import org.springframework.security.oauth2.client.web.DefaultReactiveOAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
 import org.springframework.security.oauth2.jose.jws.SignatureAlgorithm;
+import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.DelegatingServerAuthenticationEntryPoint;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 import org.springframework.security.web.server.authentication.RedirectServerAuthenticationEntryPoint;
+import org.springframework.security.web.server.authentication.ServerAuthenticationEntryPointFailureHandler;
 import org.springframework.security.web.server.authentication.logout.WebSessionServerLogoutHandler;
 import org.springframework.security.web.server.context.NoOpServerSecurityContextRepository;
 import org.springframework.security.web.server.csrf.CookieServerCsrfTokenRepository;
@@ -107,18 +109,23 @@ public class GatewaySecurityConfig {
      * @param http       Spring Security HTTP 配置
      * @param entryPoint 401 JSON
      * @param denied     403 JSON
+     * @param jwtDecoder Spring Boot 按 issuer-uri 创建的解码器（包一层失败即关闭）
      * @return 过滤链
      */
     @Bean
     @Order(1)
-    SecurityWebFilterChain gatewayBearerFilterChain(ServerHttpSecurity http, ApiAuthenticationEntryPoint entryPoint, ApiAccessDeniedHandler denied) {
+    SecurityWebFilterChain gatewayBearerFilterChain(ServerHttpSecurity http, ApiAuthenticationEntryPoint entryPoint, ApiAccessDeniedHandler denied,
+                                                    ReactiveJwtDecoder jwtDecoder) {
         http.securityMatcher(GatewaySecurityConfig::bearerRequest);
         http.authorizeExchange(exchanges -> exchanges
                 .matchers(EndpointRequest.toAnyEndpoint()).permitAll()
                 .pathMatchers(API_DOCS).permitAll()
                 .anyExchange().authenticated());
-        http.oauth2ResourceServer(resourceServer -> resourceServer.jwt(Customizer.withDefaults())
-                .authenticationEntryPoint(entryPoint).accessDeniedHandler(denied));
+        // 公钥集取不到等认证服务异常缺省会被重新抛出成 500 并打印堆栈；这里与 utils 的 servlet 资源服务器一致，交给 401 JSON。
+        ServerAuthenticationEntryPointFailureHandler bearerFailure = new ServerAuthenticationEntryPointFailureHandler(entryPoint);
+        bearerFailure.setRethrowAuthenticationServiceException(false);
+        http.oauth2ResourceServer(resourceServer -> resourceServer.jwt(jwt -> jwt.jwtDecoder(new FailClosedReactiveJwtDecoder(jwtDecoder)))
+                .authenticationEntryPoint(entryPoint).accessDeniedHandler(denied).authenticationFailureHandler(bearerFailure));
         http.exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint).accessDeniedHandler(denied));
         http.securityContextRepository(NoOpServerSecurityContextRepository.getInstance());
         http.requestCache(cache -> cache.requestCache(NoOpServerRequestCache.getInstance()));
@@ -295,18 +302,41 @@ public class GatewaySecurityConfig {
     }
 
     /**
+     * TokenRelay 续期失败的出口：刷新令牌失效时作废会话并回 401 JSON 或跳登录，连不上 Keycloak 时回 503 JSON。
+     *
+     * @return 全局过滤器
+     */
+    @Bean
+    TokenRelayFailureFilter tokenRelayFailureFilter() {
+        return new TokenRelayFailureFilter();
+    }
+
+    /**
      * 未登录：浏览器页面跳转（Accept 含 text/html 且不是 XHR）去登录，其余（API、XHR）返回 401 JSON。
      */
     private static DelegatingServerAuthenticationEntryPoint loginOrUnauthorized(ApiAuthenticationEntryPoint api) {
+        DelegatingServerAuthenticationEntryPoint entryPoint = new DelegatingServerAuthenticationEntryPoint(
+                new DelegatingServerAuthenticationEntryPoint.DelegateEntry(browserNavigationMatcher(), new RedirectServerAuthenticationEntryPoint(LOGIN_ENTRY)));
+        entryPoint.setDefaultEntryPoint(api);
+        return entryPoint;
+    }
+
+    /**
+     * 是否为浏览器整页导航：Accept 含 text/html（不把 *&#47;* 算进去）且不是 XHR；登录入口跳转与续期失败的出口共用这一口径。
+     *
+     * @param exchange 当前请求
+     * @return 是否整页导航
+     */
+    static Mono<Boolean> browserNavigation(ServerWebExchange exchange) {
+        return browserNavigationMatcher().matches(exchange).map(ServerWebExchangeMatcher.MatchResult::isMatch);
+    }
+
+    private static ServerWebExchangeMatcher browserNavigationMatcher() {
         MediaTypeServerWebExchangeMatcher html = new MediaTypeServerWebExchangeMatcher(MediaType.TEXT_HTML);
         html.setIgnoredMediaTypes(Set.of(MediaType.ALL));
         ServerWebExchangeMatcher xhr = exchange -> "XMLHttpRequest".equalsIgnoreCase(exchange.getRequest().getHeaders().getFirst("X-Requested-With"))
                 ? ServerWebExchangeMatcher.MatchResult.match() : ServerWebExchangeMatcher.MatchResult.notMatch();
-        DelegatingServerAuthenticationEntryPoint entryPoint = new DelegatingServerAuthenticationEntryPoint(
-                new DelegatingServerAuthenticationEntryPoint.DelegateEntry(new AndServerWebExchangeMatcher(html, new NegatedServerWebExchangeMatcher(xhr)),
-                        new RedirectServerAuthenticationEntryPoint(LOGIN_ENTRY)));
-        entryPoint.setDefaultEntryPoint(api);
-        return entryPoint;
+        return new AndServerWebExchangeMatcher(html, new NegatedServerWebExchangeMatcher(xhr));
     }
 
     private static Mono<ServerWebExchangeMatcher.MatchResult> bearerRequest(ServerWebExchange exchange) {

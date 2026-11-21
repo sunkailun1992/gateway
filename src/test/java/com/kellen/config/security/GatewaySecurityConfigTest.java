@@ -8,7 +8,10 @@ import okhttp3.mockwebserver.RecordedRequest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
@@ -61,6 +64,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "springdoc.swagger-ui.csrf.enabled=true", "gateway.oauth2.token-endpoint.response-timeout=1s"})
 @ActiveProfiles("exposure-it")
 @Import(InMemoryWebSessionConfiguration.class)
+@ExtendWith(OutputCaptureExtension.class)
 class GatewaySecurityConfigTest {
 
     private static final FakeKeycloak KEYCLOAK = FakeKeycloak.get();
@@ -304,7 +308,7 @@ class GatewaySecurityConfigTest {
      * Keycloak 卡住时续期在响应超时内放弃（测试配成 1 秒，生产 10 秒），请求失败且不转发，不会一直挂着占住连接。
      */
     @Test
-    void refreshAgainstAHangingTokenEndpointGivesUpWithinTheResponseTimeout() throws Exception {
+    void refreshAgainstAHangingTokenEndpointGivesUpWithinTheResponseTimeout(CapturedOutput output) throws Exception {
         // 缺省 60 秒时钟偏差：30 秒的访问令牌一签出就算到期，下一次转发就要续期。
         KEYCLOAK.accessTokenSeconds(30);
         Login login = login();
@@ -313,7 +317,9 @@ class GatewaySecurityConfigTest {
         EntityExchangeResult<byte[]> result = client.get().uri("/report/current").cookie(SESSION, login.session())
                 .accept(MediaType.APPLICATION_JSON).exchange().expectBody().returnResult();
         assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(8));
-        assertThat(result.getStatus().is2xxSuccessful()).isFalse();
+        assertThat(result.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
+        assertThat(new String(result.getResponseBodyContent(), StandardCharsets.UTF_8)).contains("\"code\":\"C0001\"");
+        assertThat(output.getAll()).doesNotContain("\tat ");
         assertThat(DOWNSTREAM.takeRequest(0, TimeUnit.MILLISECONDS)).isNull();
     }
 
@@ -368,6 +374,71 @@ class GatewaySecurityConfigTest {
         }
         assertThat(KEYCLOAK.tokenRequests()).isNotEmpty()
                 .allSatisfy(request -> assertThat(request.get("grant_type")).isEqualTo("refresh_token"));
+    }
+
+    /**
+     * 刷新令牌被 Keycloak 拒绝（空闲或最长期限到期、用户被停用或删除）：会话作废，单页应用的 XHR 拿到 401 JSON（A0230 登录已过期），
+     * 由前端整页跳登录；之后同一会话 Cookie 仍是 401，不会变成跳 Keycloak 的跨源 302（XHR 跟随后被 CORS 拦下，前端只见网络错误）。
+     */
+    @Test
+    void rejectedRefreshEndsTheSessionAndXhrGets401Json() throws Exception {
+        KEYCLOAK.accessTokenSeconds(30);
+        Login login = login();
+        KEYCLOAK.rejectRefresh();
+        client.get().uri("/report/current").cookie(SESSION, login.session()).accept(MediaType.APPLICATION_JSON)
+                .header("X-Requested-With", "XMLHttpRequest").exchange()
+                .expectStatus().isUnauthorized()
+                .expectBody().jsonPath("$.code").isEqualTo("A0230");
+        assertThat(sessions.findById(login.session()).block()).isNull();
+        client.get().uri("/report/current").cookie(SESSION, login.session()).accept(MediaType.APPLICATION_JSON)
+                .header("X-Requested-With", "XMLHttpRequest").exchange()
+                .expectStatus().isUnauthorized();
+        assertThat(DOWNSTREAM.takeRequest(0, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    /**
+     * 同样的情况下，浏览器整页导航直接回登录入口。
+     */
+    @Test
+    void rejectedRefreshSendsABrowserNavigationBackToLogin() {
+        KEYCLOAK.accessTokenSeconds(30);
+        Login login = login();
+        KEYCLOAK.rejectRefresh();
+        client.get().uri("/report/current").cookie(SESSION, login.session()).accept(MediaType.TEXT_HTML).exchange()
+                .expectStatus().isFound().expectHeader().location(GatewaySecurityConfig.LOGIN_ENTRY);
+    }
+
+    /**
+     * 续期时连不上 Keycloak：503 JSON（C0001），会话与刷新令牌保留，Keycloak 恢复后照常续期；只记一行警告，不打堆栈。
+     */
+    @Test
+    void unreachableKeycloakDuringRefreshIs503JsonAndKeepsTheSession(CapturedOutput output) throws Exception {
+        KEYCLOAK.accessTokenSeconds(30);
+        Login login = login();
+        KEYCLOAK.dropTokenEndpoint();
+        client.get().uri("/report/current").cookie(SESSION, login.session()).accept(MediaType.APPLICATION_JSON)
+                .header("X-Requested-With", "XMLHttpRequest").exchange()
+                .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
+                .expectBody().jsonPath("$.code").isEqualTo("C0001");
+        assertThat(DOWNSTREAM.takeRequest(0, TimeUnit.MILLISECONDS)).isNull();
+        assertThat(output.getAll()).doesNotContain("\tat ");
+        KEYCLOAK.reset();
+        client.get().uri("/report/current").cookie(SESSION, login.session()).accept(MediaType.APPLICATION_JSON).exchange()
+                .expectStatus().isOk();
+    }
+
+    /**
+     * Bearer 请求遇到公钥取不到（JWKS 不可达）：401 JSON（A0220），不变成 500，也不打堆栈。
+     */
+    @Test
+    void bearerRequestWhileJwksIsUnreachableIs401JsonWithoutStackTrace(CapturedOutput output) throws Exception {
+        KEYCLOAK.dropJwks();
+        client.get().uri("/report/current").header(HttpHeaders.AUTHORIZATION, "Bearer " + KEYCLOAK.bearerTokenWithUnknownKey())
+                .accept(MediaType.APPLICATION_JSON).exchange()
+                .expectStatus().isUnauthorized()
+                .expectBody().jsonPath("$.code").isEqualTo("A0220");
+        assertThat(output.getAll()).doesNotContain("\tat ");
+        assertThat(DOWNSTREAM.takeRequest(0, TimeUnit.MILLISECONDS)).isNull();
     }
 
     @Test

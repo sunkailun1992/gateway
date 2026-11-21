@@ -66,6 +66,12 @@ public final class FakeKeycloak {
 
     private volatile boolean hangTokenEndpoint;
 
+    private volatile boolean rejectRefresh;
+
+    private volatile boolean dropTokenEndpoint;
+
+    private volatile boolean dropJwks;
+
     private final AtomicInteger accessTokens = new AtomicInteger();
 
     private final AtomicReference<String> nonce = new AtomicReference<>();
@@ -202,6 +208,9 @@ public final class FakeKeycloak {
      */
     public void reset() {
         hangTokenEndpoint = false;
+        rejectRefresh = false;
+        dropTokenEndpoint = false;
+        dropJwks = false;
         tokenRequests.clear();
         nonce.set(null);
         accessTokenSeconds = 300;
@@ -211,7 +220,9 @@ public final class FakeKeycloak {
         String path = request.getRequestUrl() == null ? "" : request.getRequestUrl().encodedPath();
         return switch (path) {
             case REALM + "/.well-known/openid-configuration" -> json(discovery());
-            case REALM + "/protocol/openid-connect/certs" -> json(new JWKSet(key.toPublicJWK()).toString());
+            case REALM + "/protocol/openid-connect/certs" -> dropJwks
+                    ? new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START)
+                    : json(new JWKSet(key.toPublicJWK()).toString());
             case REALM + "/protocol/openid-connect/token" -> token(request);
             case REALM + "/protocol/openid-connect/userinfo" -> json("{\"sub\":\"kc-user-1\",\"preferred_username\":\"fixture-user\"}");
             default -> new MockResponse().setResponseCode(404);
@@ -237,12 +248,52 @@ public final class FakeKeycloak {
         hangTokenEndpoint = true;
     }
 
+    /**
+     * 之后的刷新令牌请求一律按 Keycloak 的做法回 400 invalid_grant（刷新令牌空闲或最长期限到期、用户被停用或删除），直到 {@link #reset()}。
+     */
+    public void rejectRefresh() {
+        rejectRefresh = true;
+    }
+
+    /**
+     * 令牌端点一连上就断开（Keycloak 不可达），直到 {@link #reset()}。
+     */
+    public void dropTokenEndpoint() {
+        dropTokenEndpoint = true;
+    }
+
+    /**
+     * 公钥端点一连上就断开（JWKS 不可达），直到 {@link #reset()}。
+     */
+    public void dropJwks() {
+        dropJwks = true;
+    }
+
+    /**
+     * 用公钥集里没有的密钥（新的 kid）签的 Bearer 令牌：解码器缓存里找不到，必须重新取公钥集。
+     *
+     * @return 令牌原文
+     */
+    public String bearerTokenWithUnknownKey() {
+        try {
+            RSAKey unknown = new RSAKeyGenerator(2048).keyID("fake-keycloak-rotated-key").generate();
+            SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(unknown.getKeyID()).build(), bearerClaims("github-api"));
+            jwt.sign(new RSASSASigner(unknown));
+            return jwt.serialize();
+        } catch (Exception failure) {
+            throw new IllegalStateException("签发测试令牌失败", failure);
+        }
+    }
+
     private MockResponse token(RecordedRequest request) {
         Map<String, String> form = form(request.getBody().readUtf8());
         form.put("authorization", String.valueOf(request.getHeader("Authorization")));
         tokenRequests.add(form);
         if (hangTokenEndpoint) {
             return new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE);
+        }
+        if (dropTokenEndpoint) {
+            return new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START);
         }
         String basic = "Basic " + Base64.getEncoder().encodeToString((CLIENT_ID + ":" + CLIENT_SECRET).getBytes(StandardCharsets.UTF_8));
         if (!basic.equals(request.getHeader("Authorization"))) {
@@ -252,7 +303,7 @@ public final class FakeKeycloak {
         if ("authorization_code".equals(grant) && CODE.equals(form.get("code")) && form.get("code_verifier") != null) {
             return tokens();
         }
-        if ("refresh_token".equals(grant) && REFRESH_TOKEN.equals(form.get("refresh_token"))) {
+        if ("refresh_token".equals(grant) && REFRESH_TOKEN.equals(form.get("refresh_token")) && !rejectRefresh) {
             return tokens();
         }
         return error(400, "invalid_grant");
