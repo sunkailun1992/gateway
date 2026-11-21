@@ -58,7 +58,7 @@ import static org.assertj.core.api.Assertions.assertThat;
         "spring.cloud.gateway.server.webflux.default-filters[0]=TokenRelay",
         "spring.cloud.gateway.server.webflux.default-filters[1]=RemoveRequestHeader=Cookie",
         "gateway.exposure.api-docs-enabled=true", "springdoc.api-docs.enabled=true", "springdoc.swagger-ui.enabled=true",
-        "springdoc.swagger-ui.csrf.enabled=true"})
+        "springdoc.swagger-ui.csrf.enabled=true", "gateway.oauth2.token-endpoint.response-timeout=1s"})
 @ActiveProfiles("exposure-it")
 @Import(InMemoryWebSessionConfiguration.class)
 class GatewaySecurityConfigTest {
@@ -298,6 +298,43 @@ class GatewaySecurityConfigTest {
         client.post().uri("/logout").cookie(SESSION, login.session()).exchange().expectStatus().isForbidden();
         client.get().uri("/report/current").cookie(SESSION, login.session()).accept(MediaType.APPLICATION_JSON).exchange()
                 .expectStatus().isOk();
+    }
+
+    /**
+     * Keycloak 卡住时续期在响应超时内放弃（测试配成 1 秒，生产 10 秒），请求失败且不转发，不会一直挂着占住连接。
+     */
+    @Test
+    void refreshAgainstAHangingTokenEndpointGivesUpWithinTheResponseTimeout() throws Exception {
+        // 缺省 60 秒时钟偏差：30 秒的访问令牌一签出就算到期，下一次转发就要续期。
+        KEYCLOAK.accessTokenSeconds(30);
+        Login login = login();
+        KEYCLOAK.hangTokenEndpoint();
+        long started = System.nanoTime();
+        EntityExchangeResult<byte[]> result = client.get().uri("/report/current").cookie(SESSION, login.session())
+                .accept(MediaType.APPLICATION_JSON).exchange().expectBody().returnResult();
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(8));
+        assertThat(result.getStatus().is2xxSuccessful()).isFalse();
+        assertThat(DOWNSTREAM.takeRequest(0, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    /**
+     * 登录回调用授权码换令牌时 Keycloak 卡住：在响应超时内放弃，登录失败、不建立会话。
+     */
+    @Test
+    void loginAgainstAHangingTokenEndpointGivesUpWithinTheResponseTimeout() {
+        EntityExchangeResult<byte[]> start = client.get().uri("/oauth2/authorization/keycloak").exchange()
+                .expectStatus().isFound().expectBody().returnResult();
+        ResponseCookie preLogin = start.getResponseCookies().getFirst(SESSION);
+        assertThat(preLogin).isNotNull();
+        MultiValueMap<String, String> query = UriComponentsBuilder.fromUri(start.getResponseHeaders().getLocation()).build().getQueryParams();
+        KEYCLOAK.expectNonce(decode(query.getFirst("nonce")));
+        KEYCLOAK.hangTokenEndpoint();
+        long started = System.nanoTime();
+        EntityExchangeResult<byte[]> callback = client.get()
+                .uri("/login/oauth2/code/keycloak?code={code}&state={state}", FakeKeycloak.CODE, decode(query.getFirst("state")))
+                .cookie(SESSION, preLogin.getValue()).exchange().expectBody().returnResult();
+        assertThat(Duration.ofNanos(System.nanoTime() - started)).isLessThan(Duration.ofSeconds(8));
+        assertThat(callback.getResponseHeaders().getLocation()).isNotEqualTo(URI.create("/"));
     }
 
     @Test

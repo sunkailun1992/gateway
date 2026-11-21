@@ -218,3 +218,4 @@ FLEET_TEST_PRIVACY=/secure/fleet-privacy-extension-0.1.1.jar \
 - 启动依赖：登录注册用 `issuer-uri`，网关启动时向 Keycloak 取发现文档（RP 发起注销要用其中的 `end_session_endpoint`）；Keycloak 不可达时网关起不来，先确认 NAS 上的 Keycloak 在运行。
 - Nacos：`gateway-spring.yaml` 新增 Keycloak 登录注册（客户端密钥是运行时占位符 `GITHUB_KEYCLOAK_GATEWAY_CLIENT_SECRET`）、资源服务器（只收 RS256，受众 `github-api`、`github-mcp`、`github-ai-agent`）、`TokenRelay` 与去 `Cookie` 的默认过滤器、会话命名空间与 Swagger UI 的 CSRF；user 路由只留 `/auth/**`。三套 profile 不再导入 `security-jwt.yaml`。
 - 测试：`GatewaySecurityConfigTest` 用 MockWebServer 模拟 Keycloak（发现文档、令牌端点、JWKS）与下游服务，走真实登录（PKCE）、令牌转发、到期并发续期、Bearer 校验（受众、算法）、CSRF 与注销；其余集成测试改为带假 Keycloak 签的令牌。追踪探针的两个最小应用不装安全与会话的自动配置。
+- 令牌端点超时（1.3.1）：登录回调用授权码换令牌、TokenRelay 用刷新令牌续期，都经带超时的 WebClient 访问 Keycloak 令牌端点——连接 5 秒、响应 10 秒（`gateway.oauth2.token-endpoint.connect-timeout`、`response-timeout`，与 utils 出站取令牌一致）。Spring Security 缺省的 WebClient 不限响应时间，Keycloak 卡住时登录与续期会一直挂着、占住连接；现在超时即失败，续期失败的请求不转发。`GatewaySecurityConfigTest` 用不回包的令牌端点核对两条路径都在超时内放弃。

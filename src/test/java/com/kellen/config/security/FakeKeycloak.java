@@ -11,6 +11,7 @@ import com.nimbusds.jwt.SignedJWT;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.SocketPolicy;
 import okhttp3.mockwebserver.RecordedRequest;
 import org.springframework.test.context.DynamicPropertyRegistry;
 
@@ -62,6 +63,8 @@ public final class FakeKeycloak {
     private final RSAKey key;
 
     private final List<Map<String, String>> tokenRequests = new CopyOnWriteArrayList<>();
+
+    private volatile boolean hangTokenEndpoint;
 
     private final AtomicInteger accessTokens = new AtomicInteger();
 
@@ -198,6 +201,7 @@ public final class FakeKeycloak {
      * 清空记录并恢复缺省的访问令牌有效期。
      */
     public void reset() {
+        hangTokenEndpoint = false;
         tokenRequests.clear();
         nonce.set(null);
         accessTokenSeconds = 300;
@@ -226,10 +230,20 @@ public final class FakeKeycloak {
                 """.formatted(issuer());
     }
 
+    /**
+     * 令牌端点之后收下请求但一直不回包（Keycloak 卡住），直到 {@link #reset()}。
+     */
+    public void hangTokenEndpoint() {
+        hangTokenEndpoint = true;
+    }
+
     private MockResponse token(RecordedRequest request) {
         Map<String, String> form = form(request.getBody().readUtf8());
         form.put("authorization", String.valueOf(request.getHeader("Authorization")));
         tokenRequests.add(form);
+        if (hangTokenEndpoint) {
+            return new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE);
+        }
         String basic = "Basic " + Base64.getEncoder().encodeToString((CLIENT_ID + ":" + CLIENT_SECRET).getBytes(StandardCharsets.UTF_8));
         if (!basic.equals(request.getHeader("Authorization"))) {
             return error(401, "invalid_client");

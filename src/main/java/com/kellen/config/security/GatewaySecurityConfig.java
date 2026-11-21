@@ -12,7 +12,17 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.SecurityWebFiltersOrder;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import io.netty.channel.ChannelOption;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.endpoint.OAuth2AuthorizationCodeGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGrantRequest;
+import org.springframework.security.oauth2.client.endpoint.ReactiveOAuth2AccessTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.WebClientReactiveAuthorizationCodeTokenResponseClient;
+import org.springframework.security.oauth2.client.endpoint.WebClientReactiveRefreshTokenTokenResponseClient;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientProviderBuilder;
 import org.springframework.security.oauth2.client.oidc.web.server.logout.OidcClientInitiatedServerLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ReactiveClientRegistrationRepository;
@@ -40,6 +50,7 @@ import org.springframework.web.server.session.WebSessionIdResolver;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
+import java.time.Duration;
 import java.util.Set;
 
 /**
@@ -181,10 +192,55 @@ public class GatewaySecurityConfig {
      */
     @Bean
     ReactiveOAuth2AuthorizedClientManager authorizedClientManager(ReactiveClientRegistrationRepository clients,
-                                                                  ServerOAuth2AuthorizedClientRepository authorizedClients) {
+                                                                  ServerOAuth2AuthorizedClientRepository authorizedClients,
+                                                                  ReactiveOAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> refreshTokenTokenResponseClient) {
         DefaultReactiveOAuth2AuthorizedClientManager manager = new DefaultReactiveOAuth2AuthorizedClientManager(clients, authorizedClients);
-        manager.setAuthorizedClientProvider(ReactiveOAuth2AuthorizedClientProviderBuilder.builder().authorizationCode().refreshToken().build());
+        manager.setAuthorizedClientProvider(ReactiveOAuth2AuthorizedClientProviderBuilder.builder().authorizationCode()
+                .refreshToken(refresh -> refresh.accessTokenResponseClient(refreshTokenTokenResponseClient)).build());
         return manager;
+    }
+
+    /**
+     * 登录回调用授权码换令牌的客户端（Spring Security 按类型取用这个 Bean）：访问 Keycloak 令牌端点有连接与响应超时。
+     *
+     * @param connectTimeout  连接超时，缺省 5 秒
+     * @param responseTimeout 响应超时，缺省 10 秒
+     * @return 令牌请求客户端
+     */
+    @Bean
+    ReactiveOAuth2AccessTokenResponseClient<OAuth2AuthorizationCodeGrantRequest> authorizationCodeTokenResponseClient(
+            @Value("${gateway.oauth2.token-endpoint.connect-timeout:5s}") Duration connectTimeout,
+            @Value("${gateway.oauth2.token-endpoint.response-timeout:10s}") Duration responseTimeout) {
+        WebClientReactiveAuthorizationCodeTokenResponseClient client = new WebClientReactiveAuthorizationCodeTokenResponseClient();
+        client.setWebClient(tokenEndpointWebClient(connectTimeout, responseTimeout));
+        return client;
+    }
+
+    /**
+     * TokenRelay 续期用刷新令牌换令牌的客户端：访问 Keycloak 令牌端点有连接与响应超时。
+     *
+     * @param connectTimeout  连接超时，缺省 5 秒
+     * @param responseTimeout 响应超时，缺省 10 秒
+     * @return 令牌请求客户端
+     */
+    @Bean
+    ReactiveOAuth2AccessTokenResponseClient<OAuth2RefreshTokenGrantRequest> refreshTokenTokenResponseClient(
+            @Value("${gateway.oauth2.token-endpoint.connect-timeout:5s}") Duration connectTimeout,
+            @Value("${gateway.oauth2.token-endpoint.response-timeout:10s}") Duration responseTimeout) {
+        WebClientReactiveRefreshTokenTokenResponseClient client = new WebClientReactiveRefreshTokenTokenResponseClient();
+        client.setWebClient(tokenEndpointWebClient(connectTimeout, responseTimeout));
+        return client;
+    }
+
+    /**
+     * 访问 Keycloak 令牌端点的 WebClient：Spring Security 缺省的 WebClient 不限响应时间，Keycloak 卡住时登录与续期会一直挂着、占住连接；
+     * 这里与 utils 出站取令牌一致（连接 5 秒、响应 10 秒），超时即失败、不转发请求。
+     */
+    private static WebClient tokenEndpointWebClient(Duration connectTimeout, Duration responseTimeout) {
+        HttpClient http = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, Math.toIntExact(connectTimeout.toMillis()))
+                .responseTimeout(responseTimeout);
+        return WebClient.builder().clientConnector(new ReactorClientHttpConnector(http)).build();
     }
 
     /**
