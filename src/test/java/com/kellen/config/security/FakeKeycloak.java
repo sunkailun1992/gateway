@@ -72,6 +72,8 @@ public final class FakeKeycloak {
 
     private volatile boolean dropJwks;
 
+    private volatile boolean dropDiscovery;
+
     private final AtomicInteger accessTokens = new AtomicInteger();
 
     private final AtomicReference<String> nonce = new AtomicReference<>();
@@ -161,6 +163,32 @@ public final class FakeKeycloak {
         return sign(bearerClaims("github-api"), algorithm);
     }
 
+    /**
+     * 指定签发时间的有效 Bearer 访问令牌（有效期到 2099 年）。
+     *
+     * @param issuedAt 签发时间
+     * @return 令牌原文
+     */
+    public String bearerTokenIssuedAt(Instant issuedAt) {
+        return sign(new JWTClaimsSet.Builder(bearerClaims("github-api")).issueTime(Date.from(issuedAt)).build(), JWSAlgorithm.RS256);
+    }
+
+    /**
+     * 不带签发时间的 Bearer 访问令牌（RFC 9068 §2.2 要求有 iat）。
+     *
+     * @return 令牌原文
+     */
+    public String bearerTokenWithoutIssuedAt() {
+        return sign(new JWTClaimsSet.Builder(bearerClaims("github-api")).issueTime(null).build(), JWSAlgorithm.RS256);
+    }
+
+    /**
+     * 发现文档一连上就断开（Keycloak 不可达），直到 {@link #reset()}。
+     */
+    public void dropDiscovery() {
+        dropDiscovery = true;
+    }
+
     private JWTClaimsSet bearerClaims(String audience) {
         return new JWTClaimsSet.Builder().issuer(issuer()).subject("kc-script-user").audience(audience)
                 .claim("azp", CLIENT_ID).claim("user_id", "fixture-user-1")
@@ -211,6 +239,7 @@ public final class FakeKeycloak {
         rejectRefresh = false;
         dropTokenEndpoint = false;
         dropJwks = false;
+        dropDiscovery = false;
         tokenRequests.clear();
         nonce.set(null);
         accessTokenSeconds = 300;
@@ -219,7 +248,9 @@ public final class FakeKeycloak {
     private MockResponse handle(RecordedRequest request) {
         String path = request.getRequestUrl() == null ? "" : request.getRequestUrl().encodedPath();
         return switch (path) {
-            case REALM + "/.well-known/openid-configuration" -> json(discovery());
+            case REALM + "/.well-known/openid-configuration" -> dropDiscovery
+                    ? new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START)
+                    : json(discovery());
             case REALM + "/protocol/openid-connect/certs" -> dropJwks
                     ? new MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START)
                     : json(new JWKSet(key.toPublicJWK()).toString());

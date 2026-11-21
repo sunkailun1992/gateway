@@ -57,7 +57,7 @@
 - 当前配置 user、message、report、mcp、ai-agent、ai-memory、rag 与兜底 ai 的路由；默认过滤器依次是限流、`TokenRelay`、`RemoveRequestHeader=Cookie`。
 - 新增微服务时，让 AI 读取远程 `gateway-spring.yaml` 后追加一条路由并整体发布回 Nacos。
 - 常规业务服务使用 `/{service}/**` 网关前缀，并按当前远端配置选择稳定的路径改写方式；现有 `message` 和 `report` 使用 `RewritePath`。
-- `user` 服务同时支持 `/user/**` 前缀（`StripPrefix=1`）和 `/auth/**` 直达；`/oauth2/**`、`/login/**`、`/logout` 是网关自己的登录入口、回调与注销，不能配成转发路由。
+- `user` 服务同时支持 `/user/**` 前缀（`StripPrefix=1`）和 `/auth/**` 直达；`/oauth2/**`、`/login/**`、`/logout` 是网关自己的登录入口、回调与注销，不能配成转发路由；`/login`（登录失败页，`/login?error`）由 admin-web 提供，网关不要求登录。Keycloak 登录注册在第一次用到时才发现，不得改回启动时发现（Keycloak 不可达时网关要照常启动）。
 - `message` 服务使用 `/message/**` 前缀，并通过 `RewritePath=/message/(?<segment>.*), /${segment}` 转发到后端真实路径。
 - `ai` 服务当前保留 `/api/**` 直达路由，不改写路径。
 - `report` 服务使用 `/report/**` 前缀，并通过 `RewritePath=/report/(?<segment>.*), /${segment}` 转发到后端真实路径。

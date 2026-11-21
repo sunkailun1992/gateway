@@ -1,6 +1,11 @@
 package com.kellen.config.security;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.security.autoconfigure.actuate.web.reactive.EndpointRequest;
+import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientProperties;
+import org.springframework.boot.security.oauth2.client.autoconfigure.OAuth2ClientPropertiesMapper;
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.OAuth2ResourceServerProperties;
 import org.springframework.boot.security.oauth2.server.resource.autoconfigure.reactive.JwkSetUriReactiveJwtDecoderBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
@@ -21,6 +26,11 @@ import org.springframework.security.oauth2.client.endpoint.OAuth2RefreshTokenGra
 import org.springframework.security.oauth2.client.endpoint.ReactiveOAuth2AccessTokenResponseClient;
 import org.springframework.security.oauth2.client.endpoint.WebClientReactiveAuthorizationCodeTokenResponseClient;
 import org.springframework.security.oauth2.client.endpoint.WebClientReactiveRefreshTokenTokenResponseClient;
+import org.springframework.security.oauth2.client.registration.InMemoryReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.web.server.authentication.RedirectServerAuthenticationFailureHandler;
+import org.springframework.security.web.server.authentication.logout.ServerLogoutSuccessHandler;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 import org.springframework.security.oauth2.client.ReactiveOAuth2AuthorizedClientProviderBuilder;
@@ -53,6 +63,7 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Set;
 
 /**
@@ -63,9 +74,12 @@ import java.util.Set;
  *     无状态、不建会话、不要 CSRF，通过后原样转发，细粒度授权在各服务。</li>
  *     <li>会话链：其余请求。浏览器经 Keycloak 授权码加 PKCE 登录，会话存 Spring Session（Redis），已授权客户端（访问令牌与
  *     刷新令牌）存在会话里；转发时 TokenRelay 换成 Bearer 头，到期由授权客户端管理器用刷新令牌续期。写请求要带
- *     {@code X-XSRF-TOKEN}（值取自 {@code XSRF-TOKEN} Cookie，Spring Security 单页应用写法）；{@code POST /logout}
- *     结束网关会话并做 Keycloak 的 RP 发起注销。</li>
+ *     {@code X-XSRF-TOKEN}（值取自 {@code XSRF-TOKEN} Cookie，Spring Security 单页应用写法，只认请求头）；{@code POST /logout}
+ *     结束网关会话并做 Keycloak 的 RP 发起注销。登录回调失败跳到 {@value #LOGIN_FAILURE}（admin-web 的登录失败页），该页不经过登录。</li>
  * </ul>
+ *
+ * <p>Keycloak 登录注册在第一次用到时才按 issuer-uri 发现（{@link SupplierReactiveClientRegistrationRepository}），Bearer 校验的公钥集
+ * 同样延迟取得：Keycloak 不可达时网关照常启动，登录入口回 503 JSON，恢复后无需重启。</p>
  *
  * <p>Actuator 端点由更前面的 {@link com.kellen.config.SensitiveEndpointBlockFilter} 把关（健康检查公开，其余只走管理端口并
  * 校验运维令牌），OpenAPI 文档是否对外也由它决定，这里都放行。未登录时页面跳转去登录，API 与 XHR 请求返回 401 JSON。</p>
@@ -74,7 +88,10 @@ import java.util.Set;
  */
 @Configuration(proxyBeanMethods = false)
 @EnableWebFluxSecurity
+@EnableConfigurationProperties(OAuth2ClientProperties.class)
 public class GatewaySecurityConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(GatewaySecurityConfig.class);
 
     /**
      * Keycloak 登录注册（Nacos {@code spring.security.oauth2.client.registration.keycloak}）。
@@ -85,6 +102,16 @@ public class GatewaySecurityConfig {
      * 登录入口：跳到 Keycloak 的授权端点。
      */
     static final String LOGIN_ENTRY = "/oauth2/authorization/" + REGISTRATION_ID;
+
+    /**
+     * 登录回调失败时的去处：admin-web 的登录失败页（与前端的约定；Spring Security 的缺省值也是它，这里写明，免得缺省值变了前端失配）。
+     */
+    static final String LOGIN_FAILURE = "/login?error";
+
+    /**
+     * 登录失败页的路径：不经过登录，否则回调一直失败时浏览器会在网关与 Keycloak 之间整页循环。
+     */
+    private static final String LOGIN_PAGE = "/login";
 
     /**
      * 会话 Cookie：{@code __Host-} 前缀要求 Secure、Path=/、不带 Domain（RFC 6265bis）；本机 localhost 属安全上下文。
@@ -154,29 +181,74 @@ public class GatewaySecurityConfig {
         DefaultServerOAuth2AuthorizationRequestResolver authorizationRequests = new DefaultServerOAuth2AuthorizationRequestResolver(clients);
         // 机密客户端也用 PKCE（RFC 9700）；Keycloak 侧 github-gateway 要求 S256。
         authorizationRequests.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
-        OidcClientInitiatedServerLogoutSuccessHandler logoutSuccess = new OidcClientInitiatedServerLogoutSuccessHandler(clients);
-        // 回到发起注销的入口（经 admin-web 开发代理时是 8000，直连网关时是 7100；两者都已登记在 Keycloak）。
-        logoutSuccess.setPostLogoutRedirectUri("{baseUrl}/");
-        logoutSuccess.setLogoutSuccessUrl(URI.create("/"));
-        logoutSuccess.setRedirectStrategy(new SpaLogoutRedirectStrategy());
+        ServerLogoutSuccessHandler logoutSuccess = logoutSuccessHandler(clients);
         CookieServerCsrfTokenRepository csrfTokens = CookieServerCsrfTokenRepository.withHttpOnlyFalse();
         csrfTokens.setCookiePath("/");
         csrfTokens.setCookieCustomizer(cookie -> cookie.secure(true).sameSite("Lax"));
         http.authorizeExchange(exchanges -> exchanges
                 .matchers(EndpointRequest.toAnyEndpoint()).permitAll()
                 .pathMatchers(API_DOCS).permitAll()
+                .pathMatchers(LOGIN_PAGE).permitAll()
                 .anyExchange().authenticated());
-        http.oauth2Login(login -> login.authorizationRequestResolver(authorizationRequests).authorizedClientRepository(authorizedClients));
+        http.oauth2Login(login -> login.authorizationRequestResolver(authorizationRequests).authorizedClientRepository(authorizedClients)
+                .authenticationFailureHandler(new RedirectServerAuthenticationFailureHandler(LOGIN_FAILURE)));
         http.exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(loginOrUnauthorized(entryPoint)).accessDeniedHandler(denied));
         http.csrf(csrf -> csrf.csrfTokenRepository(csrfTokens).csrfTokenRequestHandler(new SpaServerCsrfTokenRequestHandler())
                 .accessDeniedHandler(denied));
         http.addFilterAfter(new CsrfCookieWebFilter(), SecurityWebFiltersOrder.CSRF);
+        // Keycloak 不可达、登录注册还没取到时回 503 JSON（登录入口、登录回调与 TokenRelay 都经过这条链）。
+        http.addFilterAt(new ClientRegistrationUnavailableWebFilter(), SecurityWebFiltersOrder.FIRST);
         // 注销时整个会话作废（连同会话里的访问令牌与刷新令牌），再跳到 Keycloak 结束 SSO 会话。
         http.logout(logout -> logout.logoutHandler(handlers -> handlers.add(new WebSessionServerLogoutHandler()))
                 .logoutSuccessHandler(logoutSuccess));
         http.httpBasic(ServerHttpSecurity.HttpBasicSpec::disable);
         http.formLogin(ServerHttpSecurity.FormLoginSpec::disable);
         return http.build();
+    }
+
+    /**
+     * 注销成功后的跳转：RP 发起注销（OIDC RP-Initiated Logout 1.0），回到发起注销的入口。网关会话此前已作废；
+     * 这时 Keycloak 不可达（网关重启后还没发现过 Keycloak）就退回本地首页，不把注销报成 503，Keycloak 的 SSO 会话等恢复后再注销。
+     *
+     * @param clients 客户端注册
+     * @return 注销成功处理器
+     */
+    static ServerLogoutSuccessHandler logoutSuccessHandler(ReactiveClientRegistrationRepository clients) {
+        SpaLogoutRedirectStrategy redirect = new SpaLogoutRedirectStrategy();
+        OidcClientInitiatedServerLogoutSuccessHandler logoutSuccess = new OidcClientInitiatedServerLogoutSuccessHandler(clients);
+        // 回到发起注销的入口（经 admin-web 开发代理时是 8000，直连网关时是 7100；两者都已登记在 Keycloak）。
+        logoutSuccess.setPostLogoutRedirectUri("{baseUrl}/");
+        logoutSuccess.setLogoutSuccessUrl(URI.create("/"));
+        logoutSuccess.setRedirectStrategy(redirect);
+        return (exchange, authentication) -> logoutSuccess.onLogoutSuccess(exchange, authentication)
+                .onErrorResume(ClientRegistrationUnavailableException.class, failure -> {
+                    log.warn("注销时 Keycloak 暂不可达，只结束了网关会话，回到本地首页");
+                    return redirect.sendRedirect(exchange.getExchange(), URI.create("/"));
+                });
+    }
+
+    /**
+     * Keycloak 登录注册：第一次用到时才按 issuer-uri 发现（{@link SupplierReactiveClientRegistrationRepository}）。
+     * Spring Boot 缺省在启动时发现，Keycloak 不可达网关就起不来；有了这个 Bean，Boot 的同名配置整体退让，
+     * 所以这里自己启用 {@code spring.security.oauth2.client.*} 属性。注册内容仍由 Boot 的属性映射给出，与缺省一致。
+     *
+     * @param properties Spring Boot 的 OAuth2 客户端配置
+     * @return 客户端注册仓库
+     */
+    @Bean
+    ReactiveClientRegistrationRepository clientRegistrationRepository(OAuth2ClientProperties properties) {
+        return new SupplierReactiveClientRegistrationRepository(() -> new InMemoryReactiveClientRegistrationRepository(
+                new ArrayList<>(new OAuth2ClientPropertiesMapper(properties).asClientRegistrations().values())));
+    }
+
+    /**
+     * Bearer 链的签发时间校验：iat 必须有，且不能晚于当前时间 60 秒以上（Spring Boot 按 issuer-uri 建解码器时装上容器里的校验器）。
+     *
+     * @return 令牌校验器
+     */
+    @Bean
+    OAuth2TokenValidator<Jwt> gatewayIssuedAtValidator() {
+        return new IssuedAtValidator();
     }
 
     /**

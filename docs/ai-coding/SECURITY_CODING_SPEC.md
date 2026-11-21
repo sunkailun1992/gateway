@@ -12,7 +12,7 @@
 - 网关不得通过缓存、重试、降级或请求头重写让注销后的会话或已失效的令牌继续访问接口。
 - 网关新增公开路由时必须明确公开原因、目标服务、允许方法、来源限制和限流策略。
 - 登录、刷新 token、退出登录、上传、导出、批量操作等高风险路由必须支持限流、请求体大小限制和基础审计，防止资源消耗和业务流程滥用。
-- 会话 Cookie 固定 `__Host-SESSION`（Secure、HttpOnly、SameSite=Lax、Path=/）；会话请求的写操作必须带 `X-XSRF-TOKEN`（Spring Security 单页应用写法，值取自 `XSRF-TOKEN` Cookie），Bearer 请求不用 CSRF；不得为单个接口关闭 CSRF。
+- 会话 Cookie 固定 `__Host-SESSION`（Secure、HttpOnly、SameSite=Lax、Path=/）；会话请求的写操作必须带 `X-XSRF-TOKEN`（Spring Security 单页应用写法，值取自 `XSRF-TOKEN` Cookie），只认请求头、不收表单参数 `_csrf`，Bearer 请求不用 CSRF；不得为单个接口关闭 CSRF。
 
 ## 路由暴露
 

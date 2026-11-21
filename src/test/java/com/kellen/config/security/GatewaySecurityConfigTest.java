@@ -28,6 +28,7 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.reactive.server.EntityExchangeResult;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.InetAddress;
@@ -36,6 +37,7 @@ import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
@@ -235,6 +237,66 @@ class GatewaySecurityConfigTest {
                 .bodyValue("{\"name\":\"fixture\"}").exchange()
                 .expectStatus().isForbidden()
                 .expectBody().jsonPath("$.success").isEqualTo(false).jsonPath("$.code").isEqualTo("A0301");
+        assertThat(DOWNSTREAM.takeRequest(200, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    /**
+     * 只认请求头里的 CSRF 令牌：单页应用只用请求头，表单参数 {@code _csrf}（即使按 XOR 掩码写对）一律不收，
+     * 也就不会为了找令牌去读写请求的表单正文。
+     */
+    @Test
+    void sessionPostWithOnlyTheCsrfFormParameterIsForbidden() throws Exception {
+        Login login = login();
+        String csrf = csrfCookie(login);
+        DOWNSTREAM.takeRequest(5, TimeUnit.SECONDS);
+        client.post().uri("/report/items").cookie(SESSION, login.session()).cookie(XSRF, csrf)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData("_csrf", xorMasked(csrf)).with("name", "fixture")).exchange()
+                .expectStatus().isForbidden()
+                .expectBody().jsonPath("$.code").isEqualTo("A0301");
+        assertThat(DOWNSTREAM.takeRequest(200, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    /**
+     * 登录回调失败（这里是会话里没有对应的授权请求）落到 {@code /login?error}：admin-web 的登录失败页，与前端的约定。
+     */
+    @Test
+    void loginCallbackFailureLandsOnTheSpaLoginErrorPage() {
+        client.get().uri("/login/oauth2/code/keycloak?code=fixture-code&state=unknown-state").accept(MediaType.TEXT_HTML).exchange()
+                .expectStatus().isFound()
+                .expectHeader().location("/login?error");
+    }
+
+    /**
+     * 登录失败页不经过登录：网关不能把 {@code /login?error} 又送回 Keycloak，否则回调一直失败时浏览器整页循环。
+     * 网关自己没有这个页面（由 admin-web 提供），测试路由里也没有，所以是 404。
+     */
+    @Test
+    void loginErrorPageIsNotSentBackToKeycloak() {
+        client.get().uri("/login?error").accept(MediaType.TEXT_HTML).exchange()
+                .expectStatus().isNotFound();
+    }
+
+    /**
+     * 与 utils 资源服务器、RAG 引擎（PyJWT）同口径：iat 晚于当前时间 60 秒以上即拒（Keycloak 不写 nbf）。
+     */
+    @Test
+    void bearerIssuedMoreThanSixtySecondsInTheFutureIsRejected() throws Exception {
+        client.get().uri("/report/current").header(HttpHeaders.AUTHORIZATION, "Bearer " + KEYCLOAK.bearerTokenIssuedAt(Instant.now().plusSeconds(120)))
+                .exchange().expectStatus().isUnauthorized();
+        assertThat(DOWNSTREAM.takeRequest(200, TimeUnit.MILLISECONDS)).isNull();
+    }
+
+    @Test
+    void bearerIssuedSlightlyAheadIsAccepted() {
+        client.get().uri("/report/current").header(HttpHeaders.AUTHORIZATION, "Bearer " + KEYCLOAK.bearerTokenIssuedAt(Instant.now().plusSeconds(30)))
+                .exchange().expectStatus().isOk();
+    }
+
+    @Test
+    void bearerWithoutIssuedAtIsRejected() throws Exception {
+        client.get().uri("/report/current").header(HttpHeaders.AUTHORIZATION, "Bearer " + KEYCLOAK.bearerTokenWithoutIssuedAt())
+                .exchange().expectStatus().isUnauthorized();
         assertThat(DOWNSTREAM.takeRequest(200, TimeUnit.MILLISECONDS)).isNull();
     }
 
@@ -478,6 +540,16 @@ class GatewaySecurityConfigTest {
         ResponseCookie csrf = result.getResponseCookies().getFirst(XSRF);
         assertThat(csrf).isNotNull();
         return csrf.getValue();
+    }
+
+    /**
+     * 按 Spring Security 的 XOR 掩码格式（随机字节 + 随机字节异或令牌，Base64URL）写出令牌；随机字节取全零，掩码后仍是合法格式。
+     */
+    private static String xorMasked(String token) {
+        byte[] raw = token.getBytes(StandardCharsets.UTF_8);
+        byte[] combined = new byte[raw.length * 2];
+        System.arraycopy(raw, 0, combined, raw.length, raw.length);
+        return Base64.getUrlEncoder().encodeToString(combined);
     }
 
     private static String decode(String value) {

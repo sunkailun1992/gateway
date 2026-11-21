@@ -212,12 +212,14 @@ FLEET_TEST_PRIVACY=/secure/fleet-privacy-extension-0.1.1.jar \
 - Bearer 链：带 `Authorization: Bearer` 的请求按 Keycloak 访问令牌校验，无状态、不建会话、不要 CSRF，通过后原样转发。
 - 会话链：其余请求。需要登录的页面跳到 `/oauth2/authorization/keycloak` → Keycloak 登录页 → 回调 `/login/oauth2/code/keycloak`（Keycloak 已登记 7100 与 8000 两个回调）；登录时换新会话 ID。
 - 会话 Cookie `__Host-SESSION`：Secure、HttpOnly、SameSite=Lax、Path=/（本机 localhost 属安全上下文）。会话在 Spring Session（Redis 命名空间 `fleet:gateway:session`），已授权客户端（访问令牌、刷新令牌）也存在会话里，网关重启不丢登录。
-- CSRF：会话请求的写操作要带 `X-XSRF-TOKEN`，值取自前端可读的 `XSRF-TOKEN` Cookie；Bearer 请求不需要。Swagger UI 开了 `springdoc.swagger-ui.csrf.enabled`，会自动带上。
+- CSRF：会话请求的写操作要带 `X-XSRF-TOKEN`，值取自前端可读的 `XSRF-TOKEN` Cookie；只认请求头，不收表单参数 `_csrf`（1.3.4 起；缺省实现会先读表单正文找参数，正文被消费后转发到下游就没了）。Bearer 请求不需要。Swagger UI 开了 `springdoc.swagger-ui.csrf.enabled`，会自动带上。
 - 注销：`POST /logout`（带 CSRF 头）作废网关会话（连同会话里的令牌），再跳到 Keycloak 的注销端点结束 SSO 会话（带 `id_token_hint` 与 `post_logout_redirect_uri`，回到发起注销的入口）。XHR 请求（`X-Requested-With: XMLHttpRequest`）返回 202 加 `Location`，由前端自己导航；fetch 跟随跨源跳转会被 CORS 拦下。
 - 错误：未登录的页面跳转去登录；API 与 XHR 返回 401 JSON（`A0220`，`WWW-Authenticate: Bearer`）；CSRF 不对或拒绝访问返回 403 JSON（`A0301`）。
-- 启动依赖：登录注册用 `issuer-uri`，网关启动时向 Keycloak 取发现文档（RP 发起注销要用其中的 `end_session_endpoint`）；Keycloak 不可达时网关起不来，先确认 NAS 上的 Keycloak 在运行。
+- 启动不依赖 Keycloak（1.3.4 起）：登录注册仍用 `issuer-uri`（RP 发起注销要用发现文档里的 `end_session_endpoint`），但在第一次用到时才发现，成功后一直用、失败不缓存；Bearer 校验的公钥集同样延迟取得。Keycloak 不可达时网关照常启动，登录入口回 503 JSON（`C0001`），恢复后无需重启；注销时还没发现过 Keycloak 就只结束网关会话、回本地首页。此前 Spring Boot 在启动时就取发现文档，NAS 链路断着网关起不来。
+- 登录失败：回调失败跳到 `/login?error`（admin-web 的登录失败页，与前端的约定，写成显式配置）；`/login` 不要求登录，回调持续失败时不会在网关与 Keycloak 之间整页循环。
 - Nacos：`gateway-spring.yaml` 新增 Keycloak 登录注册（客户端密钥是运行时占位符 `GITHUB_KEYCLOAK_GATEWAY_CLIENT_SECRET`）、资源服务器（只收 RS256，受众 `github-api`、`github-mcp`、`github-ai-agent`）、`TokenRelay` 与去 `Cookie` 的默认过滤器、会话命名空间与 Swagger UI 的 CSRF；user 路由只留 `/auth/**`。三套 profile 不再导入 `security-jwt.yaml`。
 - 测试：`GatewaySecurityConfigTest` 用 MockWebServer 模拟 Keycloak（发现文档、令牌端点、JWKS）与下游服务，走真实登录（PKCE）、令牌转发、到期并发续期、Bearer 校验（受众、算法）、CSRF 与注销；其余集成测试改为带假 Keycloak 签的令牌。追踪探针的两个最小应用不装安全与会话的自动配置。
 - 令牌端点超时（1.3.1）：登录回调用授权码换令牌、TokenRelay 用刷新令牌续期，都经带超时的 WebClient 访问 Keycloak 令牌端点——连接 5 秒、响应 10 秒（`gateway.oauth2.token-endpoint.connect-timeout`、`response-timeout`，与 utils 出站取令牌一致）。Spring Security 缺省的 WebClient 不限响应时间，Keycloak 卡住时登录与续期会一直挂着、占住连接；现在超时即失败，续期失败的请求不转发。`GatewaySecurityConfigTest` 用不回包的令牌端点核对两条路径都在超时内放弃。
 - Nacos 账号不带默认值（1.3.2）：去掉 dev、test、prod 三套配置里 Nacos 账号与口令的默认值（原为 `nacos`，即 Nacos 管理员账号）：`custom.nacos-username`、`custom.nacos-password` 只引用 `GITHUB_NACOS_USERNAME`、`GITHUB_NACOS_PASSWORD`，缺值时启动即失败，不再静默以管理员登录（CWE-1392 默认凭据）；值由私有环境提供（IDEA 的 env 文件、Jar 的 application.properties 或容器同名环境变量）。
+- 第5阶段推迟的小问题（1.3.4）：启动不依赖 Keycloak、CSRF 只认请求头、登录失败页的约定见上；Bearer 链另校验签发时间，`iat` 必须有且不能晚于当前时间 60 秒以上（Keycloak 不写 `nbf`，口径同 utils 资源服务器与 RAG 引擎的 PyJWT）。客户端注册的延迟写法照 Spring Security 的 `SupplierReactiveJwtDecoder` 与 servlet 端 `SupplierClientRegistrationRepository`（Spring Security 7 没有响应式版本）。
 - 续期失败的出口（1.3.3）：TokenRelay 取不到可用访问令牌时，刷新令牌被 Keycloak 拒绝（空闲或最长期限到期、用户被停用或删除）就作废会话，单页应用的 XHR/API 请求回 401 JSON（A0230 登录已过期）由前端跳登录，整页导航回登录入口；令牌端点不可用（连接失败、超时、连接被断开）回 503 JSON（C0001）并保留会话，Keycloak 恢复后照常续期；Bearer 请求取不到签发方公钥时回 401 JSON（A0220）。三种情况都只记一行警告、不打堆栈（此前为 500 加堆栈，XHR 之后还会被转成跨源 302，前端只见网络错误）。依据 IETF《OAuth 2.0 for Browser-Based Apps》的 BFF 一节：会话令牌失效时 BFF 对 API 请求回 401，由前端发起登录。
